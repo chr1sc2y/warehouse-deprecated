@@ -267,22 +267,22 @@ message EnumRequest {
 1. `Any` 包含任意字节数的序列化消息；
 2. `Oneof` 类似于 `union`，表示多个字段共享同一块内存，并且只有其中一个能够被赋值；
 
-## 2 编码原理
+## 2 编码过程
 
 ProtoBuf 的编码过程分为两部分：先对字段的定义进行编码，以便在解码过程中识别其类型；再对数据的值进行编码，对其进行压缩。其中第一部分实际上是使用一定的规则**对字段的类型和编号进行编码**，得到字段的标签 Tag，而并没有用到字段的名字，因此在实际使用中即使修改字段的名字也是不会发生兼容性问题的；第二部分则是使用不同的算法对不同类型的数据进行压缩得到值 Value，主要用到的两种算法分别是 **Varint** 和 **ZigZag**。将这两部分编码完成后，再将**标签 Tag**，**字节长度 Length**（只有变长类型需要），**值 Value** 拼接在一起，就得到了编码后的二进制数据。
 
-### 2.1 标签
+### 2.1 标签编码
 
 对标签的编码步骤是先将字段类型映射到一个数字 wire_type 上，再将字段编号 field_num 向左位移 3 位，并将两者进行或操作，即 `(field_number << 3) | wire_type`。字段类型和 wire_type 的映射关系如下：
 
 | wire_type | 含义 | 存储结构 | 对应的字段类型 |
 | :--- | :--------------- | :--------------- | :------------------------------------------------------- |
-| 0    | 使用 Varint 压缩 | [标签 值] | int32, int64, uint32, uint64, sint32, sint64, bool, enum |
-| 1    | 64 位 | [标签 值] | fixed64, sfixed64, double |
-| 2    | 按长度区分 | [标签 字节长度 值] | string, bytes, embedded messages, packed repeated fields |
+| 0    | 使用 Varint 压缩 | [Tag Value] | int32, int64, uint32, uint64, sint32, sint64, bool, enum |
+| 1    | 64 位 | [Tag Value] | fixed64, sfixed64, double |
+| 2    | 按长度区分 | [Tag Length Value] | string, bytes, embedded messages, packed repeated fields |
 | 3    | Start group | | groups (弃用) |
 | 4    | End group | | groups (弃用) |
-| 5    | 32 位 | [标签 值] | fixed32, sfixed32, float |
+| 5    | 32 位 | [Tag Value] | fixed32, sfixed32, float |
 
 解码时为了能够获取存储结构的定义，必须提供正确的 proto 文件。
 
@@ -296,7 +296,7 @@ ProtoBuf 的编码过程分为两部分：先对字段的定义进行编码，�
 
 ### 2.2 Varint
 
-Varint 就是一种用来对**数字**进行编码的方法，编码后的二进制数据长度是不固定的，数值越小的数字编码后的字节长度越小。其原理非常简单，分为 3 步：
+对 `WireType == 0` 的整数类型的主要编码方式是使用 Varint，使用 Varint 编码后的二进制数据长度是不固定的，数值越小的数字编码后的字节长度越小。其步骤分为 3 步：
 
 1. 对于一个数字的二进制位表示，将其拆分为 7 个一组的字节；
 2. 在每一组的头部添加一个最高有效位（most significant bit），只有最大一组有 msb = 0，其他组的 msb 都等于 1；
@@ -394,17 +394,81 @@ Varint 编码的本质在于去掉数字二进制表示的前置 0 从而减少�
 
 在 ProtoBuf 中，负数会先用 ZigZag，再用 Varint 进行编码，达到进一步压缩数据的效果。
 
-### 2.4 变长类型
+### 2.4 其他编码过程
 
-对于 `WireType == 2` 的类型（string, bytes 等）来说，其
+#### 变长类型
 
+对于 `WireType == 2` 的变长类型（string, bytes 等）来说，其序列化后的二进制数据流是以 [Tag Length Value] 的方式存储的，其中 Length 是变长部分的长度，例如：
 
+```protobuf
+message SingleNumber {
+  int32 Num = 1;
+  string Str = 2;
+}
+```
 
+```golang
+func main() {
+	sn := SingleNumber {
+		Num: 582963,
+    Str: "helloworld"
+	}
 
+	bytes, err := proto.Marshal(&sn)
+	if err != nil {
+    panic(err)
+	}
 
+	fmt.Println(bytes)
+}
+```
 
+```shell
+$ go run main.go msg.pb.go 
+[8 179 202 35 18 10 104 101 108 108 111 119 111 114 108 100]
+```
 
+在输出的结果中，第五个字节 18 是 `string Str = 2` 的 Tag，其中 `field_num = 2, wire_type = 2`；第六个字节 10 代表这个变长类型的 Length，即从第七个字节到第十六个字节都是存储的 Value，每一个值均是用 ASCII 码存储的字符。
 
+#### 固定长度类型
+
+对于 `WireType == 1` 或 `WireType == 5` 的固定长度类型（fixed32, fixed64 等）来说，其序列化后的二进制数据的长度固定为 4 或 8 个字节，例如：
+
+```protobuf
+message SingleNumber {
+  int32 Num = 1;
+  string Str = 2;
+  fixed32 A = 3;
+  fixed64 B = 4;
+  float C = 5;
+}
+```
+
+```golang
+func main() {
+  sn := SingleNumber {
+		// Num: 582963,
+		// Str: "helloworld",
+		A: 256,
+		B: 257,
+	}
+
+	bytes, err := proto.Marshal(&sn)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println(bytes)
+}
+```
+
+```shell
+$ go run main.go msg.pb.go 
+[29 0 1 0 0 33 1 1 0 0 0 0 0 0]
+```
+
+得到的结果中第 1 个字节是 `fixed32 A = 3` 的 tag，其中 `field_num = 3, wire_type = 5`，其后的 4 个字节按照字节序直接存储；第 5 个字节是 `fixed64 B = 4` 的 tag，其中 `field_num = 4, wire_type = 1`，其后的 8 个字节同样是按照字节序直接存储的。
 
 
 
