@@ -241,6 +241,9 @@ Program received signal SIGSEGV, Segmentation fault.
    enable [breakpoint number] # 启用某个断点
    ```
 
+5. 运行至某一行
+   - `until [line]`
+
 ### 3.3 运行
 
 1. 从头开始运行

@@ -8,6 +8,8 @@
 
 ## 编译
 
+.h 文件中变量要用extern 修饰，否则在被同一个 .cpp 文件多次引用的时候会 multiple definition 报错。
+
 .a 文件：静态库 static libraries
 
 .so 文件：动态库 dynamic libraries
@@ -28,7 +30,11 @@
 3. 或者去掉中间生成 obj 文件的步骤，直接使用 g++ foo.cc -shared -fPIC -o libfoo.so 生成 .so 动态库文件
 4. 省略掉了 -g -Wall -std=c++11 参数
 
+## 链接
 
+`gcc -s`：去掉符号表
+
+strip xxx.bin：删除二进制文件的符号表
 
 ## 工具
 

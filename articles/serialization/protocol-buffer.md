@@ -1,4 +1,4 @@
-# Protocol Buffer 入门
+# Protocol Buffer 语法和编码原理
 
 [toc]
 
@@ -6,9 +6,9 @@
 
 Protocol Buffer 简称 ProtoBuf，是一种语言无关，平台无关的序列化工具，由谷歌在 2008 年开源。相较于常见的序列化工具 [XML](https://en.wikipedia.org/wiki/XML), JSON, YAML, CSV 等，ProtoBuf 的优势主要包括序列化后**数据量小**，序列化和反序列化过程**速度快**，使用时只需定义 proto 文件使得其**维护成本低**，可**向后兼容**等；但因为其数据以二进制数据流的形式存在，也有**人类不可读**的劣势。
 
-本文主要介绍 ProtoBuf 的使用方法，包括 .proto 文件的语法，以及如何使用 protoc 工具来生成不通语言的代码。
+本文主要介绍 ProtoBuf 的使用方法，包括 .proto 文件的语法，以及如何使用 protoc 工具来生成不通语言的代码；以及其编码原理。
 
-## 1 proto 文件定义
+## 1 语法
 
 首先从 https://github.com/protocolbuffers/protobuf 找到最新版本的 ProtoBuf，下载预编译好的二进制文件 `protoc` 解压到环境变量目录，本文使用的是 3.15.7 版本：
 

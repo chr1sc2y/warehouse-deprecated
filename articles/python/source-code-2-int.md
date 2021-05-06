@@ -57,7 +57,7 @@ struct _longobject {
 
 2. 一个 `digit` 类型的数组 `ob_digit` ，用于存储整数值，数组长度默认为 1，在初始化时如果长度不够则会被扩大； `digit` 是一个被 `PYLONG_BITS_IN_DIGIT ` 宏控制的类型，在编译 Python 解释器时可以通过修改这个宏来指定其类型；如果没有指定 `PYLONG_BITS_IN_DIGIT ` 宏的值，则默认会根据操作系统的类型来决定，当指针占用 8 字节以上空间时（64 位以上操作系统），`PYLONG_BITS_IN_DIGIT = 30`，`digit` 即为 `uint32_t`，否则 `PYLONG_BITS_IN_DIGIT = 15`，`digit` 则是 `unsigned short`：
 
-   ```cpp
+```cpp
 #ifndef PYLONG_BITS_IN_DIGIT
 #if SIZEOF_VOID_P >= 8
 #define PYLONG_BITS_IN_DIGIT 30
@@ -65,7 +65,7 @@ struct _longobject {
 #define PYLONG_BITS_IN_DIGIT 15
 #endif
 #endif
-   ```
+```
 
 `PyLongObject` 的内存结构大致如图：
 

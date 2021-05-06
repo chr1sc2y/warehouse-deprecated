@@ -1,4 +1,4 @@
-# Python 源码学习（3）：
+# Python 源码学习（3）：list 和 dict
 
 [TOC]
 

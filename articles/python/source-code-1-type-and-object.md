@@ -195,7 +195,7 @@ typedef struct {
 4. `Py_ssize_t tp_basicsize, tp_itemsize` 表示创建实力对象时分配的内存大小；
 5. `setattrfunc tp_setattr` 设置值，`getattrfunc tp_getattr` 获取值，`destructor tp_dealloc` 析构，`hashfunc tp_hash` 哈希等函数指针表示该类型所支持的标准操作；
 
-```c
+```cpp
 // Include/object.h
 
 /* PyTypeObject structure is defined in cpython/object.h.

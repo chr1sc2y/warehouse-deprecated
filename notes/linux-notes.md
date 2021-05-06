@@ -17,6 +17,32 @@
 
 
 
+## grep
+
+- -e: pattern
+- -v: reverse
+- -i: ignore case
+- -w: whole word
+- -n: line number
+- -l: output only file name
+- -c: output only file name and line number
+- -E: use egrep
+
+### egrep
+
+grep with regular expression
+
+### 在目录下的所有文件中搜索文本
+
+```sh
+grep -rnw '/path/to/somewhere/' -e 'pattern'
+```
+
+- `-r` or `-R`: recursive
+- `-n`: line number
+- `-w`: match the whole word
+- `-l`: lower-case, to just get the file name of matching files
+
 ## 指令
 
 ### 压缩
@@ -121,9 +147,19 @@ ps -T -p pid 查看进程内所有线程
 
 #### gstack
 
-gstack: 打印一个进程的所有线程，或单个线程的调用栈
+gstack: 打印一个进程的所有线程，或单个线程的调用栈
 
 
+
+
+
+
+
+## &
+
+&：使命令在后台运行，在当前 terminal 退出之后命令也随之退出。
+
+nohup：即 no hang up 不将任务挂起，在当前 terminal 退出之后命令也可以继续运行。
 
 
 
