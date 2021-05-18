@@ -287,7 +287,16 @@ Program received signal SIGSEGV, Segmentation fault.
    p i = 10 # 将变量 i 设置为 10，并打印
    ```
 
-### 3.6 调用信息
+### 3.6 界面
+
+```
+layout src: 仅源码
+layout asm: 仅汇编代码
+layout regs: 显示汇编代码和寄存器信息
+layout split: 显示源码和汇编代码
+```
+
+### 3.7 调用信息
 
 1. 查看函数调用栈信息
    - ```backtrace``` 或 ```bt```
