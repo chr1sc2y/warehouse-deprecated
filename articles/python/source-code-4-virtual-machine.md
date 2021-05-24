@@ -1,10 +1,10 @@
-# Python 源码学习：Python 虚拟机
+# Python 源码学习：Python 解释器
 
 [TOC]
 
-通常我们认为 Python 是一种解释型语言，**Python 解释器**（*Python Interpreter*）由 **Python 编译器**（*Python Compiler*）和 **Python 虚拟机**（*Python Virutal Machine*）两部分组成。当我们通过 Python 命令执行一个 .py 文件时，Python 编译器会将 .py 文件中的 Python 代码编译为 **Python 字节码**（*[bytecode](https://www.quora.com/What-is-the-difference-between-byte-code-and-machine-code-and-what-are-its-advantages)*）；随后 Python 虚拟机会读取并逐步执行这些字节码。
+通常我们认为 Python 是一种解释型语言，**Python 解释器**（*Python Interpreter*）由 **Python 编译器**（*Python Compiler*）和 **Python 虚拟机**（*Python Virutal Machine*）两部分组成。当我们通过 Python 命令执行 Python 代码时，Python 编译器会将 Python 代码编译为 **Python 字节码**（*[bytecode](https://www.quora.com/What-is-the-difference-between-byte-code-and-machine-code-and-what-are-its-advantages)*）；随后 Python 虚拟机会读取并逐步执行这些字节码。
 
-## 1 编译
+## 1 Python 编译器
 
 Python 提供了内置函数 `compile`，可以编译 Python 代码并生成一个包含字节码信息的对象，举例如下：
 
@@ -158,7 +158,7 @@ STORE_NAME
          14 RETURN_VALUE
 ``` -->
 
-## 2 运行
+## 2 Python 虚拟机
 
 类似于 x86-64, arm 平台和 Java 虚拟机，Python 虚拟机也是 **基于栈的**（*Stack-Based*），它的函数调用都是通过**调用栈** *call stack* 和**栈帧** *stackframe* 来实现的。
 
@@ -381,7 +381,7 @@ back:   None
 9 5
 ```
 
-#### 2.2.1 栈帧对象的回收
+#### 2.2.1 回收和分配
 
 前文讨论过类型对象，从刚才获取栈帧对象的例子里能够看到通过 `sys._getframe()` 获取的 `frame` 对象的类型名为 `frame`，不难找到它的类型对象实际上是 `PyFrame_Type`，我们可以从类型对象初始化时使用的函数指针找到它的相关操作：
 
@@ -511,13 +511,23 @@ frame_alloc(PyCodeObject *code)
 
 可以看到在进行栈帧对象的分配时，会优先判断缓存栈帧链表 `state->free_list` 是否为空，不为空的话则会从其链表头部取出一个已经分配好内存的栈帧对象，对其赋值并使用。
 
-这个优化与前者（在栈帧退出时将已经使用过的栈帧对象随代码对象 `co` 保存下来）的做法有些冲突，因此前者在最新的 *[PR 26076](https://github.com/python/cpython/commit/b11a951f16f0603d98de24fee5c023df83ea552c)* 中已经被删除了。
+这项优化（将未使用的栈帧对象保存在缓存栈帧链表中，并在创建其他栈帧对象时重复利用）与前者（在栈帧退出时将栈帧对象随代码对象保存下来，在执行相同代码对象时直接使用）的做法有些冲突，因此前者在最新的 *[PR 26076](https://github.com/python/cpython/commit/b11a951f16f0603d98de24fee5c023df83ea552c)* 中已经被移除了。
 
-![co_zombieframe.png](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/python/co_zombieframe.png.png)
+![co_zombieframe.png](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/python/co_zombieframe.png)
 
-### 2.3 运行
+### 2.3 运行过程
 
-Python 虚拟机中执行指令的入口是 `PyEval_EvalCode` 和 `PyEval_EvalCodeEx`，前者相对于后者省略了部分参数，仅将必须的代码对象，全局变量和局部变量作为参数传入，其他参数均设为 NULL。  
+#### 2.3.1 调用流程
+
+Python 的 main 函数在 cpython/Programs/python.c 文件中，这部分实现比较简单，其调用链可以总结如下：
+
+![main.png](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/python/main.png)
+
+从调用链中可以看到，在真正执行 Python 代码之前，会先读取配置并进行初始化，这些配置会被保存到 cpython/Include/cpython/initconfig.h 文件定义的 PyConfig 结构体中，这个结构体包含了 Python 运行时的环境变量，运行模式等信息；而调用链中 `pymain_run_python` 函数后的五个分支就分别代表了 Python 通过命令行、文件、标准输入等方式运行的五种模式，但无论是那种模式，最终都会通过调用 `run_eval_code_obj` 以及 `PyEval_EvalCode` 函数来执行编译后的代码对象，后者就是 Python 虚拟机执行指令的入口之一。
+
+#### 2.3.2 运行栈帧
+
+Python 虚拟机中执行指令的入口有 `PyEval_EvalCode` 和 `PyEval_EvalCodeEx`，前者相对于后者省略了部分参数，仅将必须的代码对象，全局变量和局部变量作为参数传入，其他参数均设为 NULL。  
 
 ```cpp
 // cpython/Python/eval.h
