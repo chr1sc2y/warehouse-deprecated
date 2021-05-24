@@ -28,7 +28,7 @@ $ python3 main.py
 1
 ```
 
-可以看到生成的 `bytecode` 对象的类型是 `class 'code'`，它在源码中对应的结构体是**代码对象 PyCodeObject**；代码对象是后续步骤中 Python 虚拟机的核心操作对象，它将字节码相关的参数、名称、指令序列、栈空间等信息包装成了一个结构体：
+可以看到生成的 `bytecode` 对象的类型是 `class 'code'`，它在源码中对应的结构体是**代码对象** *PyCodeObject*；代码对象是后续步骤中 Python 虚拟机操作的核心，它将字节码相关的参数、名称、指令序列等信息包装成了一个结构体：
 
 ```c
 // Include/cpython/code.h
@@ -114,7 +114,7 @@ dis.dis(bytecode)
          14 RETURN_VALUE
 ```
 
-在反编译后的输出结果中，第一列代表字节码中每一条指令的**偏移量 offset**；第二列代表各条**助记符 mnemonics**的名称，这些助记符可以很方便地帮助我们理解在后续的步骤中 Python 虚拟机要执行的事件；第三列则是每条指令的**操作数 opargs**。
+在反编译后的输出结果中，第一列代表字节码中每一条指令的**偏移量** *offset*；第二列代表各条**助记符** *mnemonics* 的名称，这些助记符可以很方便地帮助我们理解在后续的步骤中 Python 虚拟机要执行的事件；第三列则是每条指令的**操作数** *opargs*。
 
 同时，在字节码对应的十六进制表示中，每一位数字也分别代表了不同的助记符和操作数，我们可以直接通过打印出字节码的十六进制以查看其内容：
 
@@ -126,7 +126,7 @@ print(bytecode.hex())
 64005a00650165008301010064015300
 ```
 
-以上面反编译后的输出第一行为例，在 offset == 0 的地方可以找到数字 64，即 LOAD_CONST 加载常量助记符对应的**操作码 opcode**，其后紧跟着的是它的操作数 opargs == 0；第二行对应的 offset == 2，即保存变量助记符对应的操作码 opcode == 5a 及其操作数 opargs == 0；以此类推。
+以上面反编译后的输出第一行为例，在 offset == 0 的地方可以找到数字 64，即 LOAD_CONST 加载常量助记符对应的**操作码 opcode**，其后紧跟着的是它的操作数 opargs == 0；而指令第二行对应 offset == 2，即 STORE_NAME 助记符对应的操作码 opcode == 5a ，其操作数 opargs == 0；以此类推。
 
 Python 的 opcode 模块提供了关于 Python 虚拟机中助记符和操作码的相关信息，也可以在源码的 Include/opcode.h 中找到相关定义：
 
@@ -160,7 +160,7 @@ STORE_NAME
 
 ## 2 运行
 
-类似于 x86-64, arm 平台和 Java 虚拟机，Python 虚拟机也是 **基于栈的**（*Stack-Based*），它的函数调用都是通过**调用栈** **call stack** 和**栈帧** *stackframe* 来实现的。
+类似于 x86-64, arm 平台和 Java 虚拟机，Python 虚拟机也是 **基于栈的**（*Stack-Based*），它的函数调用都是通过**调用栈** *call stack* 和**栈帧** *stackframe* 来实现的。
 
 ### 2.1 调用栈
 
@@ -211,7 +211,7 @@ $ gdb main
   0x400859 <main()+16>     movl  $0x9,-0x18(%rbp)  # 将常量 5 保存在 rbp - 14 的位置
 ```
 
-在调用函数 Swap 前，会将两个参数分别用 lea (load effective address) 指令将两个变量存入 rdi 和 rsi 寄存器中：
+在调用函数 Swap 前，会将两个参数分别将两个变量存入 rdi 和 rsi 寄存器中：
 
 ```shell
 > 0x400860 <main()+23>     lea   -0x18(%rbp),%rdx
@@ -221,13 +221,7 @@ $ gdb main
   0x40086e <main()+37>     callq  0x40081d <Swap(int&, int&)>  
 ```
 
-在调用 Swap 函数前，栈帧结构大致如下：
-
-
-![call-stack-2](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/python/call-stack-2.png)
-
-
-在 callq 指令处使用 stepi 进入到 Swap 函数中，此时 rbp 和 rsp 指针应该还分别在 main 函数栈帧的底部和顶部，能够发现栈地址空间的确是向下增长的：：
+在 callq 指令处使用 stepi 进入到 Swap 函数中，此时 rbp 和 rsp 指针还分别指向 main 函数栈帧的底部和顶部，能够发现栈地址空间的确是向下增长的：
 
 ```shell
 > 0x40086e <main()+37>     callq  0x40081d <Swap(int&, int&)>  
@@ -240,6 +234,12 @@ $ gdb main
 rbp            0x7fffffffe110   0x7fffffffe110
 rsp            0x7fffffffe0e8   0x7fffffffe0e8
 ```
+
+此时栈帧结构大致如下：
+
+
+![call-stack-2](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/python/call-stack-2.png)
+
 
 执行接下来的 push 指令，将 rbp 的值存入栈顶，可以看到 rsp 的值发生了变化：
 
@@ -323,16 +323,16 @@ struct _frame {
 typedef struct _frame PyFrameObject;
 ```
 
-可以看到栈帧对象中大致包含了这些数据：
+可以看到栈帧对象中大致包含了这些数据，它们构成了 Python 虚拟机执行当前栈帧所需要的所有上下文。：
 
 - 上一个运行的栈帧对象的指针 `struct _frame *f_back`；Python 虚拟机中运行的所有栈帧对象的 `*f_back` 共同组成调用栈结构，仅有初始栈帧有 `f_back == NULL`；
 - 代码对象指针 `PyCodeObject *f_code`，它包含了当前运行栈帧所执行的字节码信息；
-- 内置名称空间、全局名称空间、局部名称空间的指针 `PyObject *f_builtins`, `PyObject *f_globals`, `PyObject *f_locals` <!-- todo -->
 - 代码对象执行期间使用的栈结构 `PyObject **f_valuestack`，在对字节码进行运算时，需要从栈顶读取数据，并将运算结果存储在栈顶，`f_valuestack` 就是用来用来存储数据的栈结构，它的大小由对应的代码对象 `f_code` 的堆栈大小决定；
 - 代码对象执行期间使用的栈结构的深度 `int f_stackdepth`；
-- 上一条执行过的字节码指令 `int f_lasti` 等数据，这些数据构成了 Python 虚拟机执行当前栈帧所需要的所有上下文。
+- 上一条执行过的字节码指令 `int f_lasti` 等数据；
+- 内置名称空间、全局名称空间、局部名称空间的指针 `PyObject *f_builtins`, `PyObject *f_globals`, `PyObject *f_locals`，它们是用来实现 Python 中从符号到对象的映射的结构，一般用字典实现，暂不讨论；
 - 用于跟踪代码执行情况的函数指针 `PyObject *f_trace` 和相关数据 `char f_trace_lines`, `char f_trace_opcodes`，暂不讨论；
-- 用于执行生成器代码的数据 `PyObject *f_gen`，暂不讨论：
+- 用于执行生成器代码的数据 `PyObject *f_gen`，暂不讨论；
 
 Python 在 `sys` 模块中提供了 `_getframe` 函数来获取栈帧对象；以一个简单的 Swap 函数为例，在最深层的函数调用处打印出栈帧对象的信息：
 
@@ -380,6 +380,140 @@ back:   None
 
 9 5
 ```
+
+#### 2.2.1 栈帧对象的回收
+
+前文讨论过类型对象，从刚才获取栈帧对象的例子里能够看到通过 `sys._getframe()` 获取的 `frame` 对象的类型名为 `frame`，不难找到它的类型对象实际上是 `PyFrame_Type`，我们可以从类型对象初始化时使用的函数指针找到它的相关操作：
+
+```cpp
+PyTypeObject PyFrame_Type = {
+    PyVarObject_HEAD_INIT(&PyType_Type, 0)
+    "frame",
+    sizeof(PyFrameObject),
+    sizeof(PyObject *),
+    (destructor)frame_dealloc,                  /* tp_dealloc */
+    0,                                          /* tp_vectorcall_offset */
+    0,                                          /* tp_getattr */
+    0,                                          /* tp_setattr */
+    0,                                          /* tp_as_async */
+    (reprfunc)frame_repr,                       /* tp_repr */
+    0,                                          /* tp_as_number */
+    0,                                          /* tp_as_sequence */
+    0,                                          /* tp_as_mapping */
+    0,                                          /* tp_hash */
+    0,                                          /* tp_call */
+    0,                                          /* tp_str */
+    PyObject_GenericGetAttr,                    /* tp_getattro */
+    PyObject_GenericSetAttr,                    /* tp_setattro */
+    0,                                          /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,/* tp_flags */
+    0,                                          /* tp_doc */
+    (traverseproc)frame_traverse,               /* tp_traverse */
+    (inquiry)frame_tp_clear,                    /* tp_clear */
+    0,                                          /* tp_richcompare */
+    0,                                          /* tp_weaklistoffset */
+    0,                                          /* tp_iter */
+    0,                                          /* tp_iternext */
+    frame_methods,                              /* tp_methods */
+    frame_memberlist,                           /* tp_members */
+    frame_getsetlist,                           /* tp_getset */
+    0,                                          /* tp_base */
+    0,                                          /* tp_dict */
+};
+```
+
+其中对栈帧对象进行析构的函数是 `frame_dealloc`，此处省略了部分代码：
+
+```cpp
+#define PyFrame_MAXFREELIST 200
+
+static void _Py_HOT_FUNCTION
+frame_dealloc(PyFrameObject *f)
+{
+    // ...
+    Py_XDECREF(f->f_back);
+    Py_DECREF(f->f_builtins);
+    Py_DECREF(f->f_globals);
+    Py_CLEAR(f->f_locals);
+    Py_CLEAR(f->f_trace);
+
+    PyCodeObject *co = f->f_code;
+    if (co->co_zombieframe  == NULL) {
+        co->co_zombieframe = f;
+    }
+    else {
+        struct _Py_frame_state *state = get_frame_state();
+#ifdef Py_DEBUG
+        // frame_dealloc() must not be called after _PyFrame_Fini()
+        assert(state->numfree != -1);
+#endif
+        if (state->numfree < PyFrame_MAXFREELIST) {
+            ++state->numfree;
+            f->f_back = state->free_list;
+            state->free_list = f;
+        }
+        else {
+            PyObject_GC_Del(f);
+        }
+    }
+
+    Py_DECREF(co);
+    Py_TRASHCAN_SAFE_END(f)
+}
+
+
+struct _Py_frame_state {
+    PyFrameObject *free_list;
+    /* number of frames currently in free_list */
+    int numfree;
+};
+
+```
+
+这是一个使用非常高频的函数（几乎每一次栈帧退出时都会调用），因此采用了一些策略来进行优化以降低调用函数的开销；一种是在首次进行栈帧对象 `f` 的回收时会先判断栈帧对象关联的代码对象 `co` 的成员指针 `co_zombieframe` 是否为空 `if (co->co_zombieframe == NULL)`；如果是，则不会立即释放这个栈帧对象 `f`，而是将该栈帧对象 `f` 保存在代码对象的这个指针中 `co->co_zombieframe = f`，这样的话在下一次执行相同的代码对象 `co` 时，就无需再次重新进行栈帧对象 `f` 的内存分配；对于栈帧对象来说，仅有 `ob_type`, `ob_size`, `f_code`, `f_valuestack` 几个成员变量会保留原有的值，因为这些成员变量与其他对象没有关联，而 `f_locals`, `f_trace`, `f_exc_type` 等指针依然会被通过 `Py_CLEAR` 置为 NULL，因为通过这些指针关联的对象可能会通过其他途径被回收，从而导致悬空指针的问题。
+
+另一个优化策略是当代码对象 `co` 的成员指针 `co->co_zombieframe` 不为空，即再次执行相同栈帧时，会使用由 Python 线程维护的缓存栈帧链表 `state->free_list` 将栈帧对象存储下来，此时如果有新的栈帧对象被定义的话，可以直接从缓存栈帧链表 `state->free_list` 中获取一个已经分配内存的栈帧对象直接赋值并使用，以达到减少分配和回收内存的效果。此处可以结合分配栈帧的 `frame_alloc` 函数来看：
+
+```cpp
+static inline PyFrameObject*
+frame_alloc(PyCodeObject *code)
+{
+    // ...
+    if (state->free_list == NULL)
+    {
+        f = PyObject_GC_NewVar(PyFrameObject, &PyFrame_Type, extras);
+        if (f == NULL) {
+            return NULL;
+        }
+    }
+    else {
+#ifdef Py_DEBUG
+        // frame_alloc() must not be called after _PyFrame_Fini()
+        assert(state->numfree != -1);
+#endif
+        assert(state->numfree > 0);
+        --state->numfree;
+        f = state->free_list;
+        state->free_list = state->free_list->f_back;
+        if (Py_SIZE(f) < extras) {
+            PyFrameObject *new_f = PyObject_GC_Resize(PyFrameObject, f, extras);
+            if (new_f == NULL) {
+                PyObject_GC_Del(f);
+                return NULL;
+            }
+            f = new_f;
+        }
+        _Py_NewReference((PyObject *)f);
+    }
+    // ...
+}
+```
+
+可以看到在进行栈帧对象的分配时，会优先判断缓存栈帧链表 `state->free_list` 是否为空，不为空的话则会从其链表头部取出一个已经分配好内存的栈帧对象，对其赋值并使用。
+
+这个优化与前者（在栈帧退出时将已经使用过的栈帧对象随代码对象 `co` 保存下来）的做法有些冲突，因此前者在最新的 *[PR 26076](https://github.com/python/cpython/commit/b11a951f16f0603d98de24fee5c023df83ea552c)* 中已经被删除了。
+
+![co_zombieframe.png](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/python/co_zombieframe.png.png)
 
 ### 2.3 运行
 
