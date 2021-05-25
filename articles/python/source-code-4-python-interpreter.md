@@ -2,33 +2,39 @@
 
 [TOC]
 
-通常我们认为 Python 是一种解释型语言，**Python 解释器**（*Python Interpreter*）由 **Python 编译器**（*Python Compiler*）和 **Python 虚拟机**（*Python Virutal Machine*）两部分组成。当我们通过 Python 命令执行 Python 代码时，Python 编译器会将 Python 代码编译为 **Python 字节码**（*[bytecode](https://www.quora.com/What-is-the-difference-between-byte-code-and-machine-code-and-what-are-its-advantages)*）；随后 Python 虚拟机会读取并逐步执行这些字节码。
+Python 是一种解释型语言，一般在使用前我们会从 Python 官方网站上下载使用 C 语言开发编译的 CPython 解释器，本文用到的源码均来自 [CPython](https://github.com/python/cpython)。
+
+**Python 解释器**（*Python Interpreter*）由 **Python 编译器**（*Python Compiler*）和 **Python 虚拟机**（*Python Virutal Machine*）两部分组成。当我们通过 Python 命令执行 Python 代码时，Python 编译器会将 Python 代码编译为 **Python 字节码**（*[bytecode](https://www.quora.com/What-is-the-difference-between-byte-code-and-machine-code-and-what-are-its-advantages)*）；随后 Python 虚拟机会读取并逐步执行这些字节码。
 
 ## 1 Python 编译器
+
+### 1.1 代码对象
 
 Python 提供了内置函数 `compile`，可以编译 Python 代码并生成一个包含字节码信息的对象，举例如下：
 
 ```python
-code = '''
-i = 1
-print(i)
-'''
+# test.py
+def Square(a):
+    return a * a
 
-bytecode = compile(code, '', 'exec')
-print(bytecode)
-print(type(bytecode))
+print(f"result:\t\t{Square(5)}")
 
-exec(bytecode)
+# main.py
+f = "test.py"
+code_obj = compile(open(f).read(), f, 'exec')
+exec(code_obj)
+print(f"code_obj:\t{code_obj}")
+print(f"type:\t\t{type(code_obj)}")
 ```
 
 ```shell
 $ python3 main.py 
-<code object <module> at 0x7fe5ca552a80, file "", line 2>
-<class 'code'>
-1
+result:         25
+code_obj:       <code object <module> at 0x7f052c156b30, file "test.py", line 1>
+type:           <class 'code'>
 ```
 
-可以看到生成的 `bytecode` 对象的类型是 `class 'code'`，它在源码中对应的结构体是**代码对象** *PyCodeObject*；代码对象是后续步骤中 Python 虚拟机操作的核心，它将字节码相关的参数、名称、指令序列等信息包装成了一个结构体：
+可以看到生成的 `code_obj` 对象的类型是 `class 'code'`，它在源码中对应的结构体是**代码对象** *PyCodeObject*；代码对象是后续步骤中 Python 虚拟机操作的核心，它将字节码相关的参数个数、局部变量、变量名称、指令序列等信息包装成了一个结构体：
 
 ```c
 // Include/cpython/code.h
@@ -83,17 +89,35 @@ struct PyCodeObject {
 };
 ```
 
-### 1.1 字节码
+其中比较重要的成员有两个，分别是编译后生成的指令序列 `co_code` 和执行当前代码块所需的栈空间大小 `co_stacksize`。
 
-在所有的这些成员变量中，`PyObject *co_code` 存储了编译后生成的字节码，它是以字节的方式存储的：
+### 1.2 字节码
+
+在所有的这些成员变量中，`PyObject *co_code` 存储了编译后生成的指令序列，它是以字节的方式存储的：
 
 ```python
-code = bytecode.co_code
-print(code)
+# test.py
+def Square(a):
+    return a * a
+
+print(f"result:\t\t{Square(5)}")
+
+# main.py
+f = "test.py"
+code_obj = compile(open(f).read(), f, 'exec')
+print(f"code obj:\t{code_obj}")
+print(f"stack size:\t{code_obj.co_stacksize}")
+result = exec(code_obj)
+bytecode = code_obj.co_code
+print(f"bytecode:\t{bytecode}")
 ```
 
 ```shell
-b'd\x00Z\x00e\x01e\x00\x83\x01\x01\x00d\x01S\x00'
+$ python3 main.py 
+code obj:       <code object <module> at 0x7f26cea5ab30, file "test.py", line 1>
+stack size:     4
+result:         25
+bytecode:       b'd\x00d\x01\x84\x00Z\x00e\x01d\x02e\x00d\x03\x83\x01\x9b\x00\x9d\x02\x83\x01\x01\x00d\x04S\x00'
 ```
 
 我们可以使用 Python 内置模块 dis 来将这些字节码反编译成类似于汇编语言的格式：
@@ -105,13 +129,20 @@ dis.dis(bytecode)
 
 ```shell
           0 LOAD_CONST               0 (0)
-          2 STORE_NAME               0 (0)
-          4 LOAD_NAME                1 (1)
-          6 LOAD_NAME                0 (0)
-          8 CALL_FUNCTION            1
-         10 POP_TOP
-         12 LOAD_CONST               1 (1)
-         14 RETURN_VALUE
+          2 LOAD_CONST               1 (1)
+          4 MAKE_FUNCTION            0
+          6 STORE_NAME               0 (0)
+          8 LOAD_NAME                1 (1)
+         10 LOAD_CONST               2 (2)
+         12 LOAD_NAME                0 (0)
+         14 LOAD_CONST               3 (3)
+         16 CALL_FUNCTION            1
+         18 FORMAT_VALUE             0
+         20 BUILD_STRING             2
+         22 CALL_FUNCTION            1
+         24 POP_TOP
+         26 LOAD_CONST               4 (4)
+         28 RETURN_VALUE
 ```
 
 在反编译后的输出结果中，第一列代表字节码中每一条指令的**偏移量** *offset*；第二列代表各条**助记符** *mnemonics* 的名称，这些助记符可以很方便地帮助我们理解在后续的步骤中 Python 虚拟机要执行的事件；第三列则是每条指令的**操作数** *opargs*。
@@ -123,10 +154,10 @@ print(bytecode.hex())
 ```
 
 ```shell
-64005a00650165008301010064015300
+64 00 64 01 84 00 5a 00 65 01 64 02 65 00 64 03 83 01 9b 00 9d 02 83 01 01 00 64 04 53 00
 ```
 
-以上面反编译后的输出第一行为例，在 offset == 0 的地方可以找到数字 64，即 LOAD_CONST 加载常量助记符对应的**操作码 opcode**，其后紧跟着的是它的操作数 opargs == 0；而指令第二行对应 offset == 2，即 STORE_NAME 助记符对应的操作码 opcode == 5a ，其操作数 opargs == 0；以此类推。
+以上面反编译后的输出为例，在 offset == 0 的地方可以找到数字 64，即 LOAD_CONST 加载常量助记符对应的**操作码 opcode**，其后紧跟着的是它的操作数 opargs == 0；而指令第四行对应的 offset == 6，可以看到 STORE_NAME 助记符对应的操作码 opcode == 5a ，其操作数 opargs == 0；以此类推。
 
 Python 的 opcode 模块提供了关于 Python 虚拟机中助记符和操作码的相关信息，也可以在源码的 Include/opcode.h 中找到相关定义：
 
@@ -145,18 +176,15 @@ STORE_NAME
 83
 ```
 
-<!-- 回到刚才的例子中，我们可以将反编译生成的指令分为两部分，分别对应用于反编译变量 `code` 中的两行代码；第一部分 `i = 1`
 
-```shell
-          0 LOAD_CONST               0 (0)
-          2 STORE_NAME               0 (0)
-          4 LOAD_NAME                1 (1)
-          6 LOAD_NAME                0 (0)
-          8 CALL_FUNCTION            1
-         10 POP_TOP
-         12 LOAD_CONST               1 (1)
-         14 RETURN_VALUE
-``` -->
+
+
+
+；Python 编译器在编译时会对代码中的每一个**代码块** *code block* 都创建一个 PyCodeObject，在 Python 中每当进入一个新的命名空间或作用域就是进入了一个新的代码块，而不同的类，函数和模块都拥有独立的命名空间
+
+
+
+
 
 ## 2 Python 虚拟机
 
@@ -206,19 +234,26 @@ $ gdb main
 (gdb) b main
 (gdb) r
 (gdb) layout reg
+```
 
+```
 > 0x400852 <main()+9>      movl  $0x5,-0x14(%rbp)  # 将常量 9 保存在 rbp - 18 的位置
   0x400859 <main()+16>     movl  $0x9,-0x18(%rbp)  # 将常量 5 保存在 rbp - 14 的位置
 ```
 
-在调用函数 Swap 前，会将两个参数分别将两个变量存入 rdi 和 rsi 寄存器中：
+在调用函数 Swap 前，会分别将两个参数存入 rdi 和 rsi 寄存器中：
 
 ```shell
-> 0x400860 <main()+23>     lea   -0x18(%rbp),%rdx
+  0x400860 <main()+23>     lea   -0x18(%rbp),%rdx
   0x400864 <main()+27>     lea   -0x14(%rbp),%rax
   0x400868 <main()+31>     mov    %rdx,%rsi
   0x40086b <main()+34>     mov    %rax,%rdi
-  0x40086e <main()+37>     callq  0x40081d <Swap(int&, int&)>  
+> 0x40086e <main()+37>     callq  0x40081d <Swap(int&, int&)>
+
+(gdb) p *$rsi
+$6 = 9
+(gdb) p *$rdi
+$7 = 5
 ```
 
 在 callq 指令处使用 stepi 进入到 Swap 函数中，此时 rbp 和 rsp 指针还分别指向 main 函数栈帧的底部和顶部，能够发现栈地址空间的确是向下增长的：
@@ -284,6 +319,8 @@ rbp            0x7fffffffe110   0x7fffffffe110
 rsp            0x7fffffffe0e8   0x7fffffffe0e8
 ```
 
+Python 中函数调用链和调用栈之间的关系也和 x86-64 平台类似，只不过是把代码块和栈帧分别进行了封装而已。
+
 ### 2.2 栈帧对象
 
 Python 中的代码对象 PyCodeObject 本身只包含了字节码相关的信息，并不具备用于执行字节码所需要的上下文信息，因此需要引入**栈帧对象 PyFrameObject**，作为代码对象运行的容器，并用来模拟其他平台下的栈帧：
@@ -323,13 +360,13 @@ struct _frame {
 typedef struct _frame PyFrameObject;
 ```
 
-可以看到栈帧对象中大致包含了这些数据，它们构成了 Python 虚拟机执行当前栈帧所需要的所有上下文。：
+可以看到栈帧对象中大致包含了以下数据，它们构成了 Python 虚拟机执行当前栈帧所需要的所有上下文：
 
 - 上一个运行的栈帧对象的指针 `struct _frame *f_back`；Python 虚拟机中运行的所有栈帧对象的 `*f_back` 共同组成调用栈结构，仅有初始栈帧有 `f_back == NULL`；
 - 代码对象指针 `PyCodeObject *f_code`，它包含了当前运行栈帧所执行的字节码信息；
-- 代码对象执行期间使用的栈结构 `PyObject **f_valuestack`，在对字节码进行运算时，需要从栈顶读取数据，并将运算结果存储在栈顶，`f_valuestack` 就是用来用来存储数据的栈结构，它的大小由对应的代码对象 `f_code` 的堆栈大小决定；
+- 代码对象执行期间的栈结构 `PyObject **f_valuestack`，在对字节码进行运算时，需要从栈顶读取数据，并将运算结果存储在栈顶，`f_valuestack` 就是用来用来存储数据的栈结构，它的大小由对应的代码对象 `f_code` 的堆栈大小决定；
 - 代码对象执行期间使用的栈结构的深度 `int f_stackdepth`；
-- 上一条执行过的字节码指令 `int f_lasti` 等数据；
+- 上一条执行过的字节码指令 `int f_lasti`，类似于 rip 寄存器；
 - 内置名称空间、全局名称空间、局部名称空间的指针 `PyObject *f_builtins`, `PyObject *f_globals`, `PyObject *f_locals`，它们是用来实现 Python 中从符号到对象的映射的结构，一般用字典实现，暂不讨论；
 - 用于跟踪代码执行情况的函数指针 `PyObject *f_trace` 和相关数据 `char f_trace_lines`, `char f_trace_opcodes`，暂不讨论；
 - 用于执行生成器代码的数据 `PyObject *f_gen`，暂不讨论；
@@ -470,7 +507,7 @@ struct _Py_frame_state {
 
 ```
 
-这是一个使用非常高频的函数（几乎每一次栈帧退出时都会调用），因此采用了一些策略来进行优化以降低调用函数的开销；一种是在首次进行栈帧对象 `f` 的回收时会先判断栈帧对象关联的代码对象 `co` 的成员指针 `co_zombieframe` 是否为空 `if (co->co_zombieframe == NULL)`；如果是，则不会立即释放这个栈帧对象 `f`，而是将该栈帧对象 `f` 保存在代码对象的这个指针中 `co->co_zombieframe = f`，这样的话在下一次执行相同的代码对象 `co` 时，就无需再次重新进行栈帧对象 `f` 的内存分配；对于栈帧对象来说，仅有 `ob_type`, `ob_size`, `f_code`, `f_valuestack` 几个成员变量会保留原有的值，因为这些成员变量与其他对象没有关联，而 `f_locals`, `f_trace`, `f_exc_type` 等指针依然会被通过 `Py_CLEAR` 置为 NULL，因为通过这些指针关联的对象可能会通过其他途径被回收，从而导致悬空指针的问题。
+这是一个使用非常高频的函数（几乎每一次栈帧退出时都会调用），因此采用了一些策略来进行优化以降低调用函数的开销；一种是在首次进行栈帧对象 `f` 的回收时会先判断栈帧对象关联的代码对象 `co` 的成员指针 `co_zombieframe` 是否为空 `if (co->co_zombieframe == NULL)`；如果是，则会将该栈帧对象 `f` 保存在代码对象的这个指针中 `co->co_zombieframe = f`，这样的话在下一次执行相同的代码对象 `co` 时，就无需再次重新进行栈帧对象 `f` 的内存分配（只要代码对象 `co` 不因为引用计数降低为 0 而被 gc）；对于栈帧对象来说，仅有 `ob_type`, `ob_size`, `f_code`, `f_valuestack` 几个成员变量会保留原有的值，因为这些成员变量与其他对象没有关联，而 `f_locals`, `f_trace`, `f_exc_type` 等指针依然会被通过 `Py_CLEAR` 置为 NULL，因为通过这些指针关联的对象可能会通过其他途径被回收，从而导致悬空指针的问题。
 
 另一个优化策略是当代码对象 `co` 的成员指针 `co->co_zombieframe` 不为空，即再次执行相同栈帧时，会使用由 Python 线程维护的缓存栈帧链表 `state->free_list` 将栈帧对象存储下来，此时如果有新的栈帧对象被定义的话，可以直接从缓存栈帧链表 `state->free_list` 中获取一个已经分配内存的栈帧对象直接赋值并使用，以达到减少分配和回收内存的效果。此处可以结合分配栈帧的 `frame_alloc` 函数来看：
 
@@ -689,10 +726,9 @@ main_loop:
         // ...
 ```
 
-整个调用过程如下：
+这就是整个调用和运行栈帧对象的过程了，整理如下：
 
 ![py-eval](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/python/py-eval.png)
-
 
 
 
