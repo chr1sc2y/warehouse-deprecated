@@ -28,7 +28,7 @@ print(f"type:\t\t{type(code_obj)}")
 ```
 
 ```shell
-$ python3 main.py 
+$ python3 main.py
 result:         25
 code_obj:       <code object <module> at 0x7f052c156b30, file "test.py", line 1>
 type:           <class 'code'>
@@ -93,6 +93,8 @@ struct PyCodeObject {
 
 ### 1.2 字节码
 
+
+
 在所有的这些成员变量中，`PyObject *co_code` 存储了编译后生成的指令序列，它是以字节的方式存储的：
 
 ```python
@@ -113,7 +115,7 @@ print(f"bytecode:\t{bytecode}")
 ```
 
 ```shell
-$ python3 main.py 
+$ python3 main.py
 code obj:       <code object <module> at 0x7f26cea5ab30, file "test.py", line 1>
 stack size:     4
 result:         25
@@ -176,13 +178,9 @@ STORE_NAME
 83
 ```
 
+### 1.3 编译原理
 
-
-
-
-；Python 编译器在编译时会对代码中的每一个**代码块** *code block* 都创建一个 PyCodeObject，在 Python 中每当进入一个新的命名空间或作用域就是进入了一个新的代码块，而不同的类，函数和模块都拥有独立的命名空间
-
-
+Python 编译器的实现和其他语言类似，包含了**词法分析** *Lexical*，**语法分析** *Syntax Analysis* 和**语义分析** *Semantic Analysis* 等步骤，本文不再赘述编译原理的部分。
 
 
 
@@ -259,7 +257,7 @@ $7 = 5
 在 callq 指令处使用 stepi 进入到 Swap 函数中，此时 rbp 和 rsp 指针还分别指向 main 函数栈帧的底部和顶部，能够发现栈地址空间的确是向下增长的：
 
 ```shell
-> 0x40086e <main()+37>     callq  0x40081d <Swap(int&, int&)>  
+> 0x40086e <main()+37>     callq  0x40081d <Swap(int&, int&)>
 
 (gdb) si
 
@@ -367,7 +365,7 @@ typedef struct _frame PyFrameObject;
 - 代码对象执行期间的栈结构 `PyObject **f_valuestack`，在对字节码进行运算时，需要从栈顶读取数据，并将运算结果存储在栈顶，`f_valuestack` 就是用来用来存储数据的栈结构，它的大小由对应的代码对象 `f_code` 的堆栈大小决定；
 - 代码对象执行期间使用的栈结构的深度 `int f_stackdepth`；
 - 上一条执行过的字节码指令 `int f_lasti`，类似于 rip 寄存器；
-- 内置名称空间、全局名称空间、局部名称空间的指针 `PyObject *f_builtins`, `PyObject *f_globals`, `PyObject *f_locals`，它们是用来实现 Python 中从符号到对象的映射的结构，一般用字典实现，暂不讨论；
+- 内置命名空间、全局命名空间、局部命名空间的指针 `PyObject *f_builtins`, `PyObject *f_globals`, `PyObject *f_locals`，它们是用来实现 Python 中从符号到对象的映射的结构，一般用字典实现，暂不讨论；
 - 用于跟踪代码执行情况的函数指针 `PyObject *f_trace` 和相关数据 `char f_trace_lines`, `char f_trace_opcodes`，暂不讨论；
 - 用于执行生成器代码的数据 `PyObject *f_gen`，暂不讨论；
 
@@ -399,7 +397,7 @@ if __name__ == "__main__":
 运行后可以观察到，在 Python 程序开始执行时会先创建一个叫做 module 的栈帧对象用于执行当前脚本中的代码；在每次函数调用的过程中，都会创建出一个新的栈帧对象，这些栈帧对象会使用 `f_back` 指针保存上一个执行栈帧的地址，并在之后调用其他函数的时候被压入栈顶：
 
 ```shell
-$ python3 main.py 
+$ python3 main.py
 frame:  <frame at 0x7fe37d7e5900, file '/main.py', line 36, code Swap>
 name:   Swap
 locals: dict_keys(['a', 'b', 'frame'])
@@ -564,7 +562,7 @@ Python 的 main 函数在 cpython/Programs/python.c 文件中，这部分实现�
 
 #### 2.3.2 运行栈帧
 
-Python 虚拟机中执行指令的入口有 `PyEval_EvalCode` 和 `PyEval_EvalCodeEx`，前者相对于后者省略了部分参数，仅将必须的代码对象，全局变量和局部变量作为参数传入，其他参数均设为 NULL。  
+Python 虚拟机中执行指令的入口有 `PyEval_EvalCode` 和 `PyEval_EvalCodeEx`，前者相对于后者省略了部分参数，仅将必须的代码对象，全局变量和局部变量作为参数传入，其他参数均设为 NULL。
 
 ```cpp
 // cpython/Python/eval.h
@@ -712,7 +710,7 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
 main_loop:
     for (;;) {
         opcode = _Py_OPCODE(*next_instr);
-        
+
         switch (opcode) {
         case TARGET(LOAD_CONST): {
             PREDICTED(LOAD_CONST);
@@ -730,33 +728,136 @@ main_loop:
 
 ![py-eval](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/python/py-eval.png)
 
+#### 2.3.3 调试
 
+最后以 [1.2](#1.2 字节码) 节的 test.py 代码为例，简单地用 gdb 来进行 `_PyEval_EvalFrameDefault` 函数中逐个字节码指令的调试：
 
+```shell
+$ gdb -ex r --args python3 test.py
+(gdb) b _PyEval_EvalFrameDefault
+Breakpoint 1 at 0x41fa90: file Python/ceval.c, line 919.
+(gdb) r
+(gdb) n
+# ...
+```
 
+如果有对应版本的源码文件的话也可以直接断点在 `switch (opcode) {` 所在的行数，这里我们不断地往后执行直到这一行之后：
 
+```shell
+(gdb) layout split
 
+  1487            case TARGET(LOAD_CONST): {
+  1488                PREDICTED(LOAD_CONST);
+> 1489                PyObject *value = GETITEM(consts, oparg);
+  1490                Py_INCREF(value);
+  1491                PUSH(value);
+  1492                FAST_DISPATCH();
+  1493            }
 
+(gdb) p opcode
+$1 = 100
+(gdb) p oparg
+$2 = 0
+```
 
+可以看到在执行 LOAD_CONST 助记符时，其对应的 opcode 的十六进制表示为64，十进制表示为 100，LOAD_CONST 首先获取了 oparg 的值，并填入到栈顶；
 
+```shell
+  2343            case TARGET(STORE_NAME): {
+> 2344                PyObject *name = GETITEM(names, oparg);
+  2345                PyObject *v = POP();
+  2346                PyObject *ns = f->f_locals;
+  2347                int err;
+  2348                if (ns == NULL) {
+  2349                    _PyErr_Format(tstate, PyExc_SystemError,
+  2350                                  "no locals found when storing %R", name);
+  2351                    Py_DECREF(v);
+  2352                    goto error;
+  2353                }
+  2354                if (PyDict_CheckExact(ns))
+  2355                    err = PyDict_SetItem(ns, name, v);
+  2356                else
+  2357                    err = PyObject_SetItem(ns, name, v);
+  2358                Py_DECREF(v);
+  2359                if (err != 0)
+  2360                    goto error;
+  2361                DISPATCH();
+  2362            }
+```
 
+STORE_NAME 也是类似的，它从栈顶取出一个数值，并存储在局部命名空间中；
 
+```shell
+  2828            case TARGET(BUILD_MAP): {
+  2829                Py_ssize_t i;
+> 2830                PyObject *map = _PyDict_NewPresized((Py_ssize_t)oparg);
+  2831                if (map == NULL)
+  2832                    goto error;
+  2833                for (i = oparg; i > 0; i--) {
+  2834                    int err;
+  2835                    PyObject *key = PEEK(2*i);
+  2836                    PyObject *value = PEEK(2*i - 1);
+  2837                    err = PyDict_SetItem(map, key, value);
+  2838                    if (err != 0) {
+  2839                        Py_DECREF(map);
+  2840                        goto error;
+  2841                    }
+  2842                }
+  2843
+  2844                while (oparg--) {
+  2845                    Py_DECREF(POP());
+  2846                    Py_DECREF(POP());
+  2847                }
+  2848                PUSH(map);
+  2849                DISPATCH();
+  2850            }
 
+(gdb) p opcode
+$9 = 105
+(gdb) p oparg
+$10 = 0
+```
 
+BUILD_MAP 稍微复杂一些，它会构造一个 Python 中的字典对象（源码中 `PyDictObject` 结构体的实例对象，用哈希表实现），并不断地从栈帧上获取 key 和 value 插入到字典中；
 
+```shell
+  2312            case TARGET(LOAD_BUILD_CLASS): {
+  2313                _Py_IDENTIFIER(__build_class__);
+  2314
+> 2315                PyObject *bc;
+  2316                if (PyDict_CheckExact(f->f_builtins)) {
+  2317                    bc = _PyDict_GetItemIdWithError(f->f_builtins, &PyId___build_class__);
+  2318                    if (bc == NULL) {
+  2319                        if (!_PyErr_Occurred(tstate)) {
+  2320                            _PyErr_SetString(tstate, PyExc_NameError,
+  2321                                             "__build_class__ not found");
+  2322                        }
+  2323                        goto error;
+  2324                    }
+  2325                    Py_INCREF(bc);
+  2326                }
+  2327                else {
+  2328                    PyObject *build_class_str = _PyUnicode_FromId(&PyId___build_class__);
+  2329                    if (build_class_str == NULL)
+  2330                        goto error;
+  2331                    bc = PyObject_GetItem(f->f_builtins, build_class_str);
+  2332                    if (bc == NULL) {
+  2333                        if (_PyErr_ExceptionMatches(tstate, PyExc_KeyError))
+  2334                            _PyErr_SetString(tstate, PyExc_NameError,
+  2335                                             "__build_class__ not found");
+  2336                        goto error;
+  2337                    }
+  2338                }
+  2339                PUSH(bc);
+  2340                DISPATCH();
+  2341            }
+(gdb) p opcode
+$11 = 71
+(gdb) p oparg
+$12 = 0
+```
 
+LOAD_BUILD_CLASS 则会从内置命名空间中通过哈希方法找到函数指针，并插入栈顶；
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+其他的字节码指令还有很多，都可以通过阅读源码或者使用 gdb 调试的方法找到其实际执行的代码；相比于汇编指令，字节码指令实际上是由许多行代码组成的功能，而 Python 虚拟机则是通过字节码指令模拟出了对汇编指令的执行过程。
 
