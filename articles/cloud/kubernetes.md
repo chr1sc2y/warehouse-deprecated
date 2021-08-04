@@ -34,16 +34,20 @@ ReplicaSet 就是多个副本的集合，它是一个控制器，当其中一个
 
 ### 2.2 Deployment
 
-Deployment 也是一个控制器，通过配置文件我们可以很方便地控制 pod 的部署、更新、回滚、扩展、收缩等等。下面是示例配置文件：
-
-```yaml
-```
-
-
+Deployment 也是一个控制器，通过配置文件我们可以很方便地控制 pod 的部署、更新、回滚、扩展、收缩等等。
 
 获取配置：kubectl get deploy
 
 ### 2.3 Service
+
+Service 用于发现后端集群中的 pod 服务，为具有相同功能的容器提供统一的网络入口，并将请求通过负载均衡后分发到各个容器上。Service 有三种类型：
+
+1. ClusterIP
+2. NodePort
+   - 在所有 node 上开启一个端口，将所有流量转发到服务的对应端口上去
+   - 坏处：无法控制 node 的 ip 发生变化的情况
+3. LoadBalancer
+   - 由 kubernetes 提供一个 ip，
 
 ### 2.4 Namespace
 
