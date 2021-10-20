@@ -362,9 +362,9 @@ _PyEval_EvalFrameDefault(PyThreadState *tstate, PyFrameObject *f, int throwflag)
 
 至此可以发现 Python 中的生成器是完全符合协程的定义（可以在用户态中断和恢复）的；同时由于 Python 虚拟机本身的实现是 **基于栈的**（*Stack-Based*），因此生成器对象在字节码层面的实现也是非常简洁的。而协程可以在线程的基础之上，借助基于 epoll 等 IO 多路复用的事件循环，来驱动不同的子程序（*subroutine*）和上下文的执行，实现形似阻塞式但实际是异步的编程模型，适用于 IO 密集型场景。
 
+### References
 
-
-
+`[1]` CPython: *https://github.com/python/cpython*
 
 
 
