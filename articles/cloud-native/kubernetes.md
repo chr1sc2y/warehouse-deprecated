@@ -49,6 +49,17 @@ Service 用于发现后端集群中的 pod 服务，为具有相同功能的容�
 3. LoadBalancer
    - 由 kubernetes 提供一个 ip，
 
+#### servicemonitor
+
+用于管理 service 对象，包含 SampleLimit 等信息
+
+```shell
+kubectl get servicemonitor -o wide
+kubectl edit servicemonitor $servicemonitor_name
+```
+
+
+
 ### 2.4 Namespace
 
 Namespace 可以将不同的资源对象隔离开，不同的 Namespace 之间的资源是不共享的。

@@ -1,5 +1,9 @@
 # Prometheus 入门
 
+[toc]
+
+Prometheus 是一个开源的监控解决方案，也是云原生基金会 CNCF 的毕业项目，它能够提供指标数据的采集、存储、查询、告警等功能。本文主要介绍 Prometheus 的基础概念和应用中需要注意的一些问题。
+
 ## 1 监控系统
 
 ### 1.1 监控模式
@@ -26,6 +30,8 @@ Prometheus 最主要的特点有 4 个：
 4. 提供了容器化版本
 
 #### 架构
+
+![prometheus-architecture](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/data/prometheus-architecture.png)
 
 Prometheus 的架构主要由以下部分组成：
 
@@ -61,43 +67,45 @@ Prometheus 的架构主要由以下部分组成：
 
 ## 2 数据模型
 
-Prometheus 存储的是[时序数据](https://en.wikipedia.org/wiki/Time_series), 即按照相同时序（相同的名字和标签），以时间维度存储连续的数据的集合。
-
 ### 2.1 时序数据
 
-时序 time series 是由指标 metric，标签 label 与值 value 定义的，具有相同指标和标签的数据属于相同时序。
+Prometheus 存储的是[时序数据](https://en.wikipedia.org/wiki/Time_series)，即由名称 name，标签 label 与值 value 定义的指标 metric；Prometheus 中所有的指标都是时序数据，并以名称和标签进行区分；具有相同名称和标签的数据属于相同时序，这些时序数据拥有不同的时间戳。
 
-时序的名字由 ASCII 字符，数字，下划线，以及冒号组成，它必须满足正则表达式 `[a-zA-Z_:][a-zA-Z0-9_:]*`, 其名字应该具有语义化，一般表示一个可以度量的指标，例如: `http_requests_total`, 可以表示 http 请求的总数。
+#### 指标命名
 
-时序的标签可以使 Prometheus 的数据更加丰富，能够区分具体不同的实例，例如 `http_requests_total{method="POST"}` 可以表示所有 http 中的 POST 请求。
+指标的名字由 ASCII 字符，数字，下划线，以及冒号组成，且满足正则表达式 `[a-zA-Z0-9_:]*`, 其命名应该具有语义化，用于表示一个可以度量的指标，例如 `http_requests_total`；时序的标签可以用于区分具体不同的方法和参数变量，例如 `http_requests_total{method="POST"}`。
 
-标签名称由 ASCII 字符，数字，以及下划线组成， 其中 `__` 开头属于 Prometheus 保留，标签的值可以是任何 Unicode 字符，支持中文。
+一个 metric 的命名应该具有以下几个特点：
 
-#### 时序类型
+1. 以命名空间或应用名称作为前缀，避免不通作用域的相同名称产生冲突，例如 **prometheus**_notifications_total, **http**_request_duration_seconds
+
+2. 以基本单位（秒，米，字节，个数等）作为后缀，例如 http_requests_**total**, node_memory_usage_**bytes**
+
+3. 将所有标签的共同逻辑部分抽离作为名称，将可变量作为标签的一部分
+
+#### 指标类型
+
+指标是整个监控系统的核心，Prometheus 中的指标类型 Metrics Type 有以下四种：
 
 1. Counter
 
-Counter 表示收集的数据只增不减，常用于记录服务请求总量、错误总数等，它会在程序重启的时候会被重设为 0。
+Counter 是只增不减的计数器，一般用于记录服务请求，返回或错误的总量，它会在程序重启时被重置为 0。例如 Prometheus Server 中 `http_requests_total` 表示当前处理的 http 请求总数。
 
-例如 Prometheus server 中 `http_requests_total`, 表示 Prometheus 处理的 http 请求总数，我们可以使用 `delta`, 很容易得到任意区间数据的增量，这个会在 PromQL 一节中细讲。
+为了能够直观地展示指标数据计数的变化情况，一般需要计算 Counter 数据的增长速率，建议 PromQL 中的 rate, topk, increase, irate 等函数使用。
 
 2. Gauge
 
-Gauge 表示搜集的数据是一个瞬时的值，与时间没有关系，可以任意变高变低，往往可以用来记录内存使用率、磁盘使用率等。
+Gauge 表示可以任意变化的快照数据，一般用于记录内存使用率，CPU 温度，程序中的 goroutine 数量等。例如 Prometheus Server 中 `go_goroutines` 表示当前 goroutines 的数量。
 
-例如 Prometheus server 中 `go_goroutines`, 表示 Prometheus 当前 goroutines 的数量。
+Gauge 经常结合 PromQL 中的最大值 max，最小值min，总和 sum 函数，或基于线性回归的时间序列预测函数 predict_linear ，获取指标在一段时间内的变化情况的 delta 等函数使用。
 
 3. Histogram
 
-Histogram 由 `<basename>_bucket{le="<upper inclusive bound>"}`，`<basename>_bucket{le="+Inf"}`, `<basename>_sum`，`<basename>_count` 组成，主要用于表示一段时间范围内对数据进行采样（通常是请求持续时间或响应大小），并能够对其指定区间以及总数进行统计，通常它采集的数据展示为直方图。
-
-例如 Prometheus server 中 `prometheus_local_storage_series_chunks_persisted`, 表示 Prometheus 中每个时序需要存储的 chunks 数量，我们可以用它计算待持久化的数据的分位数。
+Histogram 用于对一定时间范围内的数据进行采样，记录各个桶中的数据个数。例如 Prometheus Server 中 `prometheus_local_storage_series_chunks_persisted` 表示每个时间序列需要存储的 chunks 数量，我们可以使用 histogram_quantile 计算待持久化的数据的分位数 quantile 数据。
 
 4. Summary
 
-Summary 和 Histogram 类似，由 `<basename>{quantile="<φ>"}`，`<basename>_sum`，`<basename>_count` 组成，主要用于表示一段时间内数据采样结果（通常是请求持续时间或响应大小），它直接存储了 quantile 数据，而不是根据统计区间计算出来的。
-
-例如 Prometheus server 中 `prometheus_target_interval_length_seconds`。
+Summary 和 Histogram 类似，也用于表示一段时间范围内的数据采样结果，它直接存储了分位数 quantile 数据（通过客户端计算），而非根据统计区间计算。对于分位数的计算，Summary 在通过 PromQL 进行查询时有更好的性能表现，而 Histogram 则会消耗更多的资源。反之，对于客户端而言，Histogram 消耗的资源更少。
 
 ### 2.2 数据采集
 
@@ -236,8 +244,6 @@ curl -X DELETE http://pushgateway.example.org:9091/metrics/job/some_job
 ```shell
   curl -X PUT http://pushgateway.example.org:9091/api/v1/admin/wipe
 ```
-
-
 
 ## 3 PromQL
 
