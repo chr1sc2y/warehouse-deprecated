@@ -39,6 +39,8 @@ Prometheus 的架构主要由以下部分组成：
 
    Prometheus 服务器主要包含了使用 pull 模式抓取监控数据，通过本地存储（本地磁盘）和远程存储（OpenTSDB, InfluxDB, ElasticSearch 等）保存数据，使用 PromQL 查询数据三大功能。
 
+   PromQL (Prometheus Query Language) 是 Prometheus 内置的数据查询语言，提供了对时间序列数据的查询，聚合和逻辑运算等操作的支持，被广泛地应用在数据的查询，可视化和告警中。关于 PromQL 的相关操作可以参考 [探索PromQL](https://yunlzheng.gitbook.io/prometheus-book/parti-prometheus-ji-chu/promql/prometheus-query-language)。
+
 2. Pushgateway
 
    Pushgateway 是用来实现 push 模式监控的组件，一般应用于短作业，批处理作业，或当服务与 Prometheus 服务器之间有网络隔离时；它的主要问题是存在**单点故障**，一个 Pushgateway 的**宕机**会导致所有被推送到这个 Pushgateway 上的数据的丢失，如果使用多个 Pushgateway 实例组成的**集群**，那么每一次数据推送只会被分发到单个实例上，但 Prometheus Server 每次会在所有的 Pushgateway 实例上进行数据采集，这会导致数据错乱，目前官方对此并没有解决方案，一个比较好的开源方案是使用[动态一致性哈希 + 基于 consul 的 service check](https://github.com/ning1875/dynamic-sharding)；除此之外，Pushgateway 不会自动删除任何指标数据，即使在进行过 push 操作的 pod 被销毁之后，其上报的所有数据仍然残留在 Pushgateway 中，需要手动。
@@ -53,11 +55,11 @@ Prometheus 的架构主要由以下部分组成：
 
 5. Alertmanager
 
-   Alertmanager 是独立于 Prometheus 的一个告警组件，需要单独部署，多个 Alertmanager 可以配置为一个集群来避免单点问题。
+   Prometheus 将数据采集和告警分离成了两个模块，告警模块叫做 Alertmanager，它是独立于 Prometheus 的一个组件，需要单独部署，多个 Alertmanager 可以配置为一个集群来避免单点问题。报警规则被配置在 Prometheus Servers 上，产生告警信息时会通知 AlertManger，AlertManager 会通过 silencing, inhibition 等方式聚合，并通过 email、PagerDuty、HipChat、Slack 等方式发送告警提示。
 
 6. Dashboard
 
-   Web UI, Grafana, API Client 统称为 Dashboard。
+   Web UI, Grafana, API Client 等统称为 Dashboard。
 
 #### 局限性
 
@@ -244,65 +246,6 @@ curl -X DELETE http://pushgateway.example.org:9091/metrics/job/some_job
 ```shell
   curl -X PUT http://pushgateway.example.org:9091/api/v1/admin/wipe
 ```
-
-## 3 PromQL
-
-PromQL (Prometheus Query Language) 是专门用于查询 Prometheus 时序数据的 [DSL](https://en.wikipedia.org/wiki/Domain-specific_language) 语言，在数据可视化，告警，以及使用 Grafana 查询 Prometheus 数据时都会用到它。
-
-PromQL 是Promethus内置的查询工具，Grafana通过PromQL 的 API 查询采集的数据并展示在界面上。
-
-### 聚合操作
-
-PromQL 包含了内置的聚合操作符，可以将使用瞬时表达式返回的瞬时向量进行聚合并形成一个新的时间序列。
-
-- `sum` 求和
-- `min` 最小值
-- `max` 最大值
-- `avg` 平均值
-- `stddev` 标准差
-- `stdvar` 标准方差
-- `count` 计数
-- `count_values` 对value进行计数
-- `bottomk` 后 n 条时序
-- `topk` 前n条时序
-- `quantile` 分位数
-
-### 范围查询
-
-类似于 `http_requests_total` 的表达式在返回时间序列查询结果时只会包含该时间序列中最新的一个样本值，这样的返回结果称为**瞬时向量**，而相应的这样的表达式称为**瞬时向量表达式**；如果想要查询一段时间范围内的样本数据则需要使用**区间向量表达式**，通过区间向量表达式查询到的结果称为**区间向量**，它与前者的区别在于需要指定查询时间的范围，时间范围通过 `[]` 进行定义，例如 `http_requests_total{}[1m]` 表示最近 1 分钟之内的所有 http 请求的样本数据。
-
-
-
-
-
-## 4 告警
-
-### 告警规则
-
-示例：
-
-```yaml
-groups:
-- name: example
-  rules:
-  - alert: HighErrorRate
-    expr: job:request_latency_seconds:mean5m{job="myjob"} > 0.5
-    for: 10m
-    labels:
-      severity: page
-    annotations:
-      summary: High request latency
-      description: description info
-```
-
-告警规则主要包含以下部分：
-
-- groups：一般将一组相关的规则定义在同一个 group 下，每个 group 有一个共同的 name，其中可以定义多条 rules
-- alert：告警规则的名称。
-- expr：基于PromQL表达式告警触发条件，用于计算是否有时间序列满足该条件。
-- for：评估等待时间，可选参数。用于表示只有当触发条件持续一段时间后才发送告警。在等待期间新产生告警的状态为pending。
-- labels：自定义标签，允许用户指定要附加到告警上的一组附加标签。
-- annotations：用于指定一组附加信息，比如用于描述告警详细信息的文字等，annotations的内容在告警产生时会一同作为参数发送到Alertmanager。
 
 
 
