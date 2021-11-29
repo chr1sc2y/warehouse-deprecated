@@ -24,7 +24,7 @@ Kafka 最初是为了解决 LinkedIn 数据管道问题应运而生的。它的�
 
 消息代理的优势主要有以下几点：
 
-1. 实现异步处理，提升处理性能
+1. 实现异步处理，提升性能
 
    把消息处理流程使用消息代理异步化，不会阻塞生产者服务，生产者服务可以在得到处理结果之前继续执行，并提高其并发处理的能力。
 
@@ -42,7 +42,7 @@ Kafka 最初是为了解决 LinkedIn 数据管道问题应运而生的。它的�
 
 #### 消息和批次
 
-Kafka 的数据单元被称为消息，消息类似于关系型数据库里的一个数据行或一条记录；消息由字节数组组成，当消息以一种可控的方式写入不同的分区时，会用到 key，kafka 会为 key 生成一个一致性散列值，然后使用散列值对主题分区数进行取模，为消息选取分区。这样可以保证具有相同 key 的消息总是被写到相同的分区上。
+Kafka 的数据单元被称为消息，消息类似于关系型数据库里的一个数据行或一条记录；消息由字节数组组成，当消息以一种可控的方式写入不同的分区时，会用到 key，Kafka 会为 key 生成一个一致性散列值，然后使用散列值对主题分区数进行取模，为消息选取分区。这样可以保证具有相同 key 的消息总是被写到相同的分区上。
 
 如果每一个消息都单独发送，会导致大量的网络开销。为了提高效率，消息会被分批次写入Kafka；**批次 batch** 是一组消息，这些消息属于同一个主题和分区；批次数据在传输时会被压缩，这样可以提升数据的传输和存储能力；单个 batch 的消息数量越大，单位时间内处理的消息就越多，但单个 batch 的传输时间就越长，因此需要在时延和吞吐量之间作出权衡。
 
@@ -68,7 +68,7 @@ Kafka 的客户端有两种基本类型：**生产者 producer**和**消费者 c
 
 一个独立的 Kafka 服务器被称为 broker；broker 会独立接收来自生产者的消息，为消息设置 offset，并将消息保存到磁盘，并处理消费者读取分区的请求，返回已经保存到磁盘上的消息；单个broker 最多可以处理数千个 partition 以及每秒百万级的消息量。
 
-broker 是 kafka **集群 cluster** 的组成部分，每个集群都有一个 broker 充当集群控制器，负责管理工作，包括将 partition 分配给 broker，以及监控其他 broker。在集群中，一个 partition 从属于一个 broker。一个 partition 可能被分配给多个 broker，这个时候会发生**分区复制 replication**，这种复制机制为分区提供了消息冗余，如果有一个 broker 失效，其他 broker 可以接管领导权；同时，相关的消费者和生产者都要重新连接到新的首领。
+broker 是 Kafka **集群 cluster** 的组成部分，每个集群都有一个 broker 充当集群控制器，负责管理工作，包括将 partition 分配给 broker，以及监控其他 broker。在集群中，一个 partition 从属于一个 broker。一个 partition 可能被分配给多个 broker，这个时候会发生**分区复制 replication**，这种复制机制为分区提供了消息冗余，如果有一个 broker 失效，其他 broker 可以接管领导权；同时，相关的消费者和生产者都要重新连接到新的首领。
 
 ![replica](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/message-proxy/replica.png)
 
@@ -104,7 +104,7 @@ Kafka 服务器在收到这个 batch 后会返回一个响应。如果消息成�
 
 ### 2.1 序列化器
 
-key 和 value 的序列化器在 `KafkaProducer` 的构造函数中由不同的 Serializer 初始化，如果传入的 Serializer 为空，则使用配置中的序列化器名字，利用反射机制来创建对象：
+key 和 value 的序列化器在生产者 `KafkaProducer` 的构造函数中由不同的 Serializer 初始化，如果传入的 Serializer 为空，则使用配置中的序列化器名字，利用反射机制来创建对象；**反射 reflection** 是指在运行时，程序在对某个类型一无所知的情况下，直接创建该类型实例并调用其方法的机制：
 
 ```java
 public class KafkaProducer<K, V> implements Producer<K, V> {
@@ -118,7 +118,9 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
                   Time time) {
         // ...
         
+        	// key 的 serializer
             if (keySerializer == null) {
+                // 利用反射构造配置类型的对象
                 this.keySerializer = config.getConfiguredInstance(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
                                                                                          Serializer.class);
                 this.keySerializer.configure(config.originals(Collections.singletonMap(ProducerConfig.CLIENT_ID_CONFIG, clientId)), true);
@@ -126,7 +128,9 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
                 config.ignore(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG);
                 this.keySerializer = keySerializer;
             }
+        	// value 的 serializer
             if (valueSerializer == null) {
+                // 利用反射构造配置类型的对象
                 this.valueSerializer = config.getConfiguredInstance(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
                                                                                            Serializer.class);
                 this.valueSerializer.configure(config.originals(Collections.singletonMap(ProducerConfig.CLIENT_ID_CONFIG, clientId)), false);
@@ -141,7 +145,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 }
 ```
 
-以 `StringSerializer` 为例，它实现了 `Serializer` 接口，其中的 `serialize` 函数用来实现对数据的序列化：
+以 `StringSerializer` 为例，它实现了 `Serializer` 接口，其中的 `serialize` 函数用来实现对数据的序列化，它实际上调用了 Java 中的 `String.getBytes` 函数进行字符串的序列化：
 
 ```java
 public class StringSerializer implements Serializer<String> {
@@ -194,14 +198,18 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 ```java
 public class DefaultPartitioner implements Partitioner {
 
+    // 为每个 topic 维护一个计数值
     private final ConcurrentMap<String, AtomicInteger> topicCounterMap = new ConcurrentHashMap<>();
 
     public int partition(String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster) {
         List<PartitionInfo> partitions = cluster.partitionsForTopic(topic);
         int numPartitions = partitions.size();
+        // key 为空时
         if (keyBytes == null) {
+            // 获取自增值 nextValue
             int nextValue = nextValue(topic);
             List<PartitionInfo> availablePartitions = cluster.availablePartitionsForTopic(topic);
+            // 对 nextValue 和 当前可用的 partition 数量取余
             if (availablePartitions.size() > 0) {
                 int part = Utils.toPositive(nextValue) % availablePartitions.size();
                 return availablePartitions.get(part).partition();
@@ -209,6 +217,7 @@ public class DefaultPartitioner implements Partitioner {
                 return Utils.toPositive(nextValue) % numPartitions;
             }
         } else {
+            // key 不为空时
             return Utils.toPositive(Utils.murmur2(keyBytes)) % numPartitions;
         }
     }
@@ -230,12 +239,12 @@ public class DefaultPartitioner implements Partitioner {
 
 这段代码主要分为两部分：
 
-- 当 key 为空时，调用 `nextValue` 获取一个自增值，其中 `topicCounterMap` 为每一个 topic 维护一个计数值，每次调用 `nextValue` 时递增并对 nextValue 取余来获取 partition
-- 当 key 不为空时，使用 murmur2 哈希算法对 key 进行 hash 操作，获取 Partition
+- 当 key 为空时，调用 `nextValue` 获取一个自增值，其中 `topicCounterMap` 为每一个 topic 维护一个计数值，每次调用 `nextValue` 时递增，再对 partition 的数量取余得到结果
+- 当 key 不为空时，使用 murmur2 哈希算法对 key 进行 hash 操作得到结果
 
-可以看到只有当指定 key 的时候，消息才会被分配到同一个 partition 中，从而保证被有序地消费。
+可以发现只有当指定 key 的时候，消息才会被分配到同一个 partition 中，从而保证被有序地消费。
 
-Kafka 2.4.0 引入了新的粘性分区缓存类 `StickyPartitionCache`；它会在 key 为空时，从缓存中获取分区数：
+Kafka 2.4.0 引入了新的粘性分区缓存类 `StickyPartitionCache`，当 key 为空时，不再为每个 topic 使用轮询的方法来分配 partition，而是会调用 `StickyPartitionCache.partition` 来从缓存中获取对应的 partition：
 
 ```java
 public class DefaultPartitioner implements Partitioner {
@@ -243,20 +252,21 @@ public class DefaultPartitioner implements Partitioner {
     private final StickyPartitionCache stickyPartitionCache = new StickyPartitionCache();
 
     public int partition(String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster, int numPartitions) {
+        // key 为空时
         if (keyBytes == null) {
             return stickyPartitionCache.partition(topic, cluster);
         }
+        // key 不为空时
         return Utils.toPositive(Utils.murmur2(keyBytes)) % numPartitions;
     }
 }
 
-
-/**
- * An internal class that implements a cache used for sticky partitioning behavior. The cache tracks the current sticky
- * partition for any given topic. This class should not be used externally. 
- */
+// 实现粘性分区缓存的内部类，追踪每一个 topic 的粘性 partition
 public class StickyPartitionCache {
+
+    // 从 topic 到 partition 的映射
     private final ConcurrentMap<String, Integer> indexCache;
+    
     public StickyPartitionCache() {
         this.indexCache = new ConcurrentHashMap<>();
     }
@@ -264,6 +274,7 @@ public class StickyPartitionCache {
     public int partition(String topic, Cluster cluster) {
         Integer part = indexCache.get(topic);
         if (part == null) {
+            // 如果没有缓存则调用 nextPartition 选择一个分区并缓存
             return nextPartition(topic, cluster, -1);
         }
         return part;
@@ -273,8 +284,7 @@ public class StickyPartitionCache {
         List<PartitionInfo> partitions = cluster.partitionsForTopic(topic);
         Integer oldPart = indexCache.get(topic);
         Integer newPart = oldPart;
-        // Check that the current sticky partition for the topic is either not set or that the partition that 
-        // triggered the new batch matches the sticky partition that needs to be changed.
+        // 如果当前 topic 没有缓存，或创建了一个新的 batch
         if (oldPart == null || oldPart == prevPartition) {
             List<PartitionInfo> availablePartitions = cluster.availablePartitionsForTopic(topic);
             if (availablePartitions.size() < 1) {
@@ -288,10 +298,11 @@ public class StickyPartitionCache {
                     newPart = availablePartitions.get(random % availablePartitions.size()).partition();
                 }
             }
-            // Only change the sticky partition if it is null or prevPartition matches the current sticky partition.
+            // 如果是 topic 没有缓存
             if (oldPart == null) {
                 indexCache.putIfAbsent(topic, newPart);
             } else {
+                // 如果是创建了一个新的缓存
                 indexCache.replace(topic, prevPartition, newPart);
             }
             return indexCache.get(topic);
@@ -302,15 +313,13 @@ public class StickyPartitionCache {
 }
 ```
 
-`StickyPartitionCache` 类会维护一个从 topic 到 partition 的缓存，其本质也是轮询。
-
-在老版本的分区方式中，同一个 topic 中没有指定 partition 和 key 的消息会被轮询到不同的 partition 中，这样不同的 partition 中就会产生很多的 batch，从而导致更多的网络请求。而 `StickyPartitionCache` 保证了这样的消息可以被投递到同一个 partition 中，构成同一个 batch 发送给 Kafka 服务器，从而提高 Kafka 的吞吐量。
+`StickyPartitionCache` 类会维护一个从 topic 到 partition 的缓存，其本质也是轮询。在老版本的 `partition` 方法中，如果没有指定 key，那么同一个 topic 中的消息会被轮询到不同的 partition 中，这样不同的 partition 中就会产生很多的 batch，从而导致更多的网络请求。而 `StickyPartitionCache` 保证了这样的消息可以共同构成一个更大的 batch，投递到相同的 partition 中，发送给 Kafka 服务器，从而提高吞吐量。
 
 ## 3 消费者
 
 Kafka 的消费者服务经常会做一些高延迟的 IO 操作，比如把数据写到磁盘，数据库或 HDFS，或者使用数据进行比较耗时的计算。在这些情况下，单个消费者无法跟上数据生成的速度，所以只能通过横向伸缩的方式，增加更多的消费者，让它们分担负载，从而提高吞吐量。
 
-就像多个生产者可以同时向相同的 topic 写入消息一样，我们也可以使用多个消费者订阅并从同一个 topic 读取消息，对消息进行分流。Kafka 中的消费者从属于消费者群组，一个群组订阅一个 topic，每个消费者则接收其中一部分 partition 的消息。
+就像多个生产者可以同时向相同的 topic 写入消息一样，我们也可以使用多个消费者订阅并从同一个 topic 读取消息，对消息进行分流。Kafka 中的消费者从属于**消费者群组 group**，一个 group 订阅一个 topic，每个消费者则接收其中一部分 partition 的消息。
 
 ![consumer-group-2](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/message-proxy/consumer-group-2.png)
 
@@ -351,21 +360,21 @@ public class KafkaConsumerDemo {
 
 ### 3.2 偏移量
 
-消费者对象 `KafkaConsumerRunner` 运行时，通过先订阅 `subscribe` 然后轮询 `poll` 来向 Kafka 服务器请求数据，每次调用 `poll` 方法后，服务器会返回 partition 中还没有被消费者读取过的记录，消费者可以追踪当前 partition 中的偏移量，而更新 partition 当前偏移量的操作叫作**提交 submit**。
+消费者对象 `KafkaConsumerRunner` 运行时，通过先订阅 `subscribe` 然后轮询 `poll` 的方式来向 Kafka 服务器请求数据，每次调用 `poll` 方法后，服务器会返回 partition 中还没有被消费者读取过的记录，消费者可以追踪当前 partition 中的 offset，而更新 partition 当前 offset 的操作叫作**提交 submit**。
 
-如果消费者一直处于运行状态，那么偏移量就没有意义；而如果消费者发生崩溃或者有新的消费者加入 group，group 会触发和完成再平衡机制，每个消费者会被分配到新的 partition，为了能够继续之前的工作，消费者需要读取当前 partition 中最后一次提交的偏移量，然后从偏移量所在位置继续处理消息。最后一次提交的偏移量的位置如果在最后实际处理的消息之后或之前，分别会造成消息丢失和消息重复的问题，因此提交的方式显得尤为重要。
+如果消费者一直处于运行状态，那么 offset 就没有意义；而如果消费者失效或者有新的消费者加入 group，group 就会触发再平衡机制，每个消费者会被分配到新的 partition，为了能够继续之前的工作，消费者需要读取当前 partition 中最后一次提交的 offset，然后从 offset 所在位置继续处理消息。最后一次提交的 offset 的位置如果在最后实际处理的消息之后或之前，分别会造成消息丢失和消息重复的问题，因此提交的方式显得尤为重要。
 
-如果将消费者处理后的记录与偏移量都作为一个原子操作或事务都提交到数据库上，那么我们甚至可以不依赖于 Kafka 服务器提供的 offset，而是在消费者启动或分配到新分区后，直接调用 `seek` 方法，在 Kafka 服务器中查找这个特定 offset 位置的消息。
+如果将消费者处理后的记录与 offset 都作为一个原子操作或事务都提交到其他数据库上，那么我们甚至可以不依赖于 Kafka 服务器提供的 offset，而是在消费者启动或分配到新分区后，直接调用 `seek` 方法，在 Kafka 服务器中查找这个特定 offset 位置的消息。
 
 #### 自动提交
 
-最简单的提交方式是让消费者自动提交偏移量，这种情况下，每过 5s（默认情况下），消费者会自动把从 `poll` 方法接收到的最大偏移量进行提交。
+最简单的提交方式是让消费者自动提交 offset，这种情况下，每过 5s（默认情况下），消费者会自动把从 `poll` 方法接收到的最大 offset 进行提交。
 
-使用自动提交是存在隐患的，假设在设置的自动提交间隔之内，group 发生了再平衡，那么再平衡完成之后消费者获取到的偏移量则会落后于实际应该处理的消息位置，部分消息会被重复处理。虽然可以通过缩短提交间隔来更频繁地提交偏移量，减少重复处理消息的数量，但这样的情况是无法避免的。
+使用自动提交是存在隐患的，假设在设置的自动提交间隔之内，group 发生了再平衡，那么再平衡完成之后消费者获取到的 offset 则会落后于实际应该处理的消息位置，部分消息会被重复处理。虽然可以通过缩短提交间隔来更频繁地提交 offset，减少重复处理消息的数量，但这样的情况是无法避免的。
 
 #### 同步提交
 
-通过调用 `KafkaConsumer.commitSync`，可以对偏移量进行同步提交，不传递任何参数时默认提交的最大偏移量。
+通过调用 `KafkaConsumer.commitSync`，可以对 offset 进行同步提交，不传递任何参数时默认提交的最大 offset。
 
 ```java
 public class KafkaConsumer<K, V> implements Consumer<K, V> {
@@ -376,6 +385,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
         try {
             maybeThrowInvalidGroupIdException();
             offsets.forEach(this::updateLastSeenEpochIfNewer);
+            // coordinator 管理消费者的提交过程
             if (!coordinator.commitOffsetsSync(new HashMap<>(offsets), time.timer(timeout))) {
                 throw new TimeoutException("Timeout of " + timeout.toMillis() + "ms expired before successfully " +
                         "committing offsets " + offsets);
@@ -414,11 +424,10 @@ public final class ConsumerCoordinator extends AbstractCoordinator {
             }
 
             RequestFuture<Void> future = sendOffsetCommitRequest(offsets);
+
+            //  阻塞等待提交结果
             client.poll(future, timer);
 
-            // We may have had in-flight offset commits when the synchronous commit began. If so, ensure that
-            // the corresponding callbacks are invoked prior to returning in order to preserve the order that
-            // the offset commits were applied.
             invokeCompletedOffsetCommitCallbacks();
 
             if (future.succeeded()) {
@@ -472,6 +481,7 @@ public final class ConsumerCoordinator extends AbstractCoordinator {
         this.subscriptions.needRefreshCommits();
         RequestFuture<Void> future = sendOffsetCommitRequest(offsets);
         final OffsetCommitCallback cb = callback == null ? defaultOffsetCommitCallback : callback;
+        // 添加监听
         future.addListener(new RequestFutureListener<Void>() {
             @Override
             public void onSuccess(Void value) {
@@ -502,11 +512,11 @@ public final class ConsumerCoordinator extends AbstractCoordinator {
 
 再平衡指当 partition 的所属权从一个消费者转移到另一个消费者的行为，它为 group 的高可用性和伸缩性提供了保证；一般有三种时机会触发再平衡：
 
-- group 中新增或移除了部分消费者，，对应的 partition 需要被分配给 group 内的其他消费者；
-- group 订阅的 topic 发生了变化，例如 group 利用正则表达式订阅了 "test.*" 的 topic，在某个时间集群内新增了一个符合正则表达式的 topic，那么该 topic 的所有 partition 也会被分配给当前的 group；
-- group 订阅的 topic 中新增了 partition。
+- group 订阅的 topic 中新增了 partition
+- group 中新增或移除了部分消费者，对应的 partition 需要被分配给 group 内的其他消费者
+- group 订阅的 topic 发生了变化，例如 group 利用某个正则表达式（例如 "test.*"）订阅了特定的 topic，在某个时间集群内新增了一个符合正则表达式的 topic（例如 "test1"），那么该 topic 的所有 partition 也会被分配给当前的 group
 
-在再平衡发生的期间，group 内的消费者无法读取消息，即整个 group 会变得**不可用**；并且当一个 partition 被重新分配给另一个消费者时，消费者的**状态会丢失**，即其偏移量有可能尚未提交。因此一般情况下应该尽量避免不必要的再平衡的发生。
+在再平衡发生的期间，group 内的消费者无法读取消息，即整个 group 会变得**不可用**；并且当一个 partition 被重新分配给另一个消费者时，消费者的**状态会丢失**，即其 offset 有可能尚未提交。因此一般情况下应该尽量避免不必要的再平衡的发生。
 
 #### RangeAssignor
 
@@ -728,11 +738,11 @@ replica 分为两种类型，一种是**首领 leader**，每个 partition 有�
 
 而主备复制需要等待所有的节点写入成功，在有 n 个节点的情况下，最多可以容忍 n-1 节点失败；它的优点在于可以容忍更多的节点失败（只要有一个节点存活就可以继续工作），并且最少只要有两个节点存在就可以提供服务，而前者需要有至少三个节点。
 
-Kafka 使用了经典的主备复制方式来实现集群之间的日志复制，每个 replica 都在磁盘上维护了一个日志，他们会将接收到的日志按按顺序添加到日志中。当生产者将消息 push 到某个 partition 时，该消息首先会被转发到该 partition 的 leader 上，leader 将其追加到其磁盘日志中，同时 partition 上的其他所有 follower 不断地向 leader 请求消息，只有当有足够多的 follower 成功处理完消息后，leader 才会认为消息已经处理完成；但 leader 如果总是等待所有 follower 处理完消息，势必会提高系统的延迟，降低服务的可用性。
+Kafka 使用了经典的主备复制方式来实现集群之间的日志复制，每个 replica 都在磁盘上维护了一个日志，他们会将接收到的日志按按顺序添加到日志中。当生产者将消息 push 到某个 partition 时，该消息首先会被转发到该 partition 的 leader 上，leader 将其追加到磁盘日志中，同时 partition 上的其他所有 follower 不断地向 leader 请求并同步这个消息，只有当有足够多的 follower 成功处理完消息后，leader 才会认为消息已经处理完成；但 leader 如果总是等待所有 follower 处理完消息，势必会提高系统的延迟，降低服务的可用性。
 
 #### ISR
 
-为了解决上面问题，Kafka引入了 **ISR In-Sync Replica** 的概念。partition 中的所有 replica 统称为**AR Assigned Repllicas**，所有与 leader 保持一定程度同步的组成了 **ISR In-Sync Replicas**，ISR 是 AR 的子集，ISR 包含了 leader。leader 接收到生产者发送的消息后，follower 才能从 leader 上拉取消息进行同步，同步期间内 follower 相对于 leader 会有一定程度的滞后，所谓的“一定程度”指可以忍受的滞后时间，这个滞后时间可以通过修改配置进行调整。相较于 leader 滞后过多的副本会组成**OSR Out-Sync Relipcas**，AR = ISR + OSR。正常情况下，所有的 follower 都应该与 leader 保持一定程度的同步，即AR = ISR, OSR = Ø。
+为了解决等待 follower 处理完消息的问题，Kafka引入了 **ISR In-Sync Replica** 的概念。partition 中的所有 replica 统称为**AR Assigned Repllicas**，所有与 leader 保持一定程度同步的 replica 组成了 **ISR In-Sync Replicas**，ISR 是 AR 的子集，ISR 包含了 leader。leader 接收到生产者发送的消息后，follower 才能从 leader 上拉取消息进行同步，同步期间内 follower 相对于 leader 会有一定程度的滞后，所谓的“一定程度”指可以忍受的滞后时间，这个滞后时间可以通过修改配置进行调整。相较于 leader 滞后过多的副本会组成 **OSR Out-Sync Relipcas**，AR = ISR + OSR。正常情况下，所有的 follower 都应该与 leader 保持一定程度的同步，即AR = ISR, OSR = Ø。
 
 Leader 负责维护和跟踪所有 follower 的滞后状态，当 follower 落后太多或者失效时，leader 会将其从 ISR 集合中剔除；如果 OSR 集合中的 follower 追上了 leader，leader 则会将其加入 ISR 集合。只有 ISR 集合中的 follower 才有资格被选举为leader。但如果当 ISR 集合变为空集，即 leader 失效，且没有其他任何一个 follower 与 leader 之前的状态一致时，可以通过修改配置开启 **Unclean Leader Election**，使得 OSR 集合中的 follower 可以成为新的 leader。这样可能会造成数据的重复消费，但好处是它使得 partition 至少有一个 leader 并可以继续提供服务，从而提高了高可用性。在这个问题上，Kafka 赋予了开发者选择 CAP 理论中一致性（Consistency）和可用性（Availability）的权利。
 
@@ -815,7 +825,7 @@ Kafka 服务器采用 Reactor 模式处理消息。Reactor 模式是**事件驱�
 
 ![reactor](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/message-proxy/reactor.png)
 
-broker 上有一个SocketServer 组件，类似于 Reactor 模式中的 Dispatcher，包括对应的 Acceptor 线程和工作线程池，在 Kafka 中叫做网络线程池，默认值为 3 个。Acceptor 线程采用**轮询**的方式将流量公平地分发给所有网络线程，避免了请求处理的倾斜，有利于实现较为公平的请求处理调度。
+broker 上有一个 SocketServer 组件，类似于 Reactor 模式中的 Dispatcher，包括对应的 Acceptor 线程和工作线程池（在  Kafka 中叫做网络线程池，默认值为 3 个）。Acceptor 线程采用**轮询**的方式将流量公平地分发给所有网络线程，避免了请求处理的倾斜，有利于实现较为公平的请求处理调度。
 
 ![process-request](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/message-proxy/process-request.png)
 
@@ -853,11 +863,31 @@ broker 会为每个 segment 维护一个文件句柄，即使 segment 是不活�
 
 日志压缩是Kafka 的一个高级特性，因为有了这个特性，Kafka 可以用来长时间地保存数据。
 
-除了 key, value, offset 之外，消息里还包含了消息大小、校验和、消息格式版本号、压缩算法和时间戳等信息。时间戳可以是生产者发送消息的时间，也可以是消息到达broker 的时间（可配置），如果生产者发送的是压缩过的消息，那么同一个 batch 的消息会被压缩在一起，被当作**包装消息 Wrapper message**；此后，broker 再把这个消息组发送给消费者。
+除了 key, value, offset 之外，生产者发送来的消息里还包含了消息大小、校验和、消息格式版本号、压缩算法和时间戳等信息，时间戳可以是生产者发送消息的时间，也可以是消息到达broker 的时间（可配置）；如果生产者发送的是压缩过的消息，那么同一个 batch 的消息会被压缩在一起，被当作**包装消息 Wrapper message**；此后，broker 再把这个消息组发送给消费者。
 
 ![file-format](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/message-proxy/file-format.png)
 
 Kafka 将消息构造为递归的模式，外层是一个包装消息，其值又是一个消息集合，称为**内层消息 Inner message**，外层消息可能有多条，每条外层消息的值都包装了多条内层消息，在外层指定一个压缩方法，再对内层消息使用这种压缩方法进行解压缩即可。
+
+<!-- ## 5 跨集群
+
+Kafka 中集群间的数据复制叫作**镜像 mirroring**，Kafka 内置的跨集群复制工具叫作 MirrorMaker。
+
+#### 应用场景
+
+下面列出了一些 Kafka 跨集群的应用场景：
+
+1. 区域集群和中心集群
+
+    一个公司可能有多个数据中心，它们分布在不同的地理区域，这些数据中心都有自己的 Kafka 集群，其中有些服务需要访问多个数据中心的数据
+
+2. 数据冗余 Data Redundancy
+    
+    虽然一个 Kafka 集群就足以支撑所有的应用程序，但整个集群有可能因为某些原因变得不可用
+
+3. 云迁移
+
+    很多公司会将它们的业务同时部署在本地数据中心和云端，或使用多个云服务，用于容灾和提升流量的监管和安全性 -->
 
 
 
