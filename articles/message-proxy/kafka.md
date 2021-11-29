@@ -6,11 +6,9 @@
 
 Kafka 最初是为了解决 LinkedIn 数据管道问题应运而生的。它的设计目的是提供一个高性能的消息系统，可以处理多种数据类型，并能够实时提供纯净且结构化的用户活动数据和系统度量指标。
 
-它不只是一个能够存储数据的系统（比如传统的关系型数据库、键值存储引擎、搜索引擎或缓存系统），还是一个持续变化和不断增长的流处理系统。现在 Kafka 已经被广泛地应用在社交网络的实时数据流处理当中，成为了下一代数据架构的基础。Kafka 经常会被拿来与现有的企业级消息系统、大数据系统（如 Hadoop）和数据集成 ETL 工具等技术作比较。
+它不只是一个数据存储系统（类似于传统的关系型数据库、键值存储引擎、搜索引擎或缓存系统），还是一个持续变化和不断增长的流处理系统。现在 Kafka 已经被广泛地应用在社交网络的实时数据流处理当中，成为了下一代数据架构的基础。Kafka 经常会被拿来与现有的企业级消息系统、大数据系统（如 Hadoop）和数据集成 ETL 工具等技术作比较。
 
-Kafka 有点像消息系统，允许发布和订阅消息流。从这点来看，它类似于ActiveMQ、RabbitMQ 或 IBM 的 MQSeries 等产品。Kafka 的特点在于它以集群的方式运行，可以**自由伸缩**，处理大量的应用程序；其次，Kafka 可以按照要求持久化数据，即提供了数据传递的保证——可复制、持久化，保留多长时间完全可以由你来决定。最后，流处理将数据处理的层次提升到了新高度；消息系统只会传递消息，而 Kafka 的流式处理能力让我们只用很少的代码就能够动态地处理派生流和数据集。
-
-
+从发布和订阅消息流的角度来看，Kafka 类似于 ActiveMQ、RabbitMQ 或 IBM 的 MQSeries 等产品，其特点在于它以集群的方式运行，可以**自由伸缩**，处理大量的应用程序；其次，Kafka 可以按照要求持久化数据，即提供了数据传递的保证——可复制、持久化，保留多长时间完全可以由开发者决定。此外，消息系统只会传递消息，而 Kafka 的流式处理能力让我们只用很少的代码就能够动态地处理派生流和数据集。
 
 ## 1 基础概念
 
@@ -46,7 +44,7 @@ Kafka 有点像消息系统，允许发布和订阅消息流。从这点来看�
 
 Kafka 的数据单元被称为消息，消息类似于关系型数据库里的一个数据行或一条记录；消息由字节数组组成，当消息以一种可控的方式写入不同的分区时，会用到 key，kafka 会为 key 生成一个一致性散列值，然后使用散列值对主题分区数进行取模，为消息选取分区。这样可以保证具有相同 key 的消息总是被写到相同的分区上。
 
-如果每一个消息都单独发送，会导致大量的网络开销。为了提高效率，消息会被分批次写入Kafka；**批次 batch** 就是一组消息，这些消息属于同一个主题和分区；批次数据在传输时会被压缩，这样可以提升数据的传输和存储能力；单个批次的消息数量越大，单位时间内处理的消息就越多，但单个批次的传输时间就越长，因此需要在时延和吞吐量之间作出权衡。
+如果每一个消息都单独发送，会导致大量的网络开销。为了提高效率，消息会被分批次写入Kafka；**批次 batch** 是一组消息，这些消息属于同一个主题和分区；批次数据在传输时会被压缩，这样可以提升数据的传输和存储能力；单个 batch 的消息数量越大，单位时间内处理的消息就越多，但单个 batch 的传输时间就越长，因此需要在时延和吞吐量之间作出权衡。
 
 #### 主题和分区
 Kafka 的消息通过**主题 topic** 进行分类，主题就好比关系型数据库的表，或者文件系统里的目录；同一个主题可以被分为若干个**分区 partition**，一个 partition 即一个提交日志，消息以追加的方式写入 partition，然后以先入先出的顺序读取。一个 topic 一般包含多个 partition，因此无法在整个 topic 的维度保证消息的顺序，只能保证消息在单个 partition 内的顺序。
@@ -70,7 +68,7 @@ Kafka 的客户端有两种基本类型：**生产者 producer**和**消费者 c
 
 一个独立的 Kafka 服务器被称为 broker；broker 会独立接收来自生产者的消息，为消息设置 offset，并将消息保存到磁盘，并处理消费者读取分区的请求，返回已经保存到磁盘上的消息；单个broker 最多可以处理数千个 partition 以及每秒百万级的消息量。
 
-broker 是 kafka **集群 cluster** 的组成部分，每个集群都有一个 broker 充当集群控制器，负责管理工作，包括将 partition 分配给 broker，以及监控其他 broker。在集群中，一个 partition 从属于一个 broker，这个 broker 被称为 partition 的**首领 leader**。一个 partition 可能被分配给多个 broker，这个时候会发生分区**复制 replica**，这种复制机制为分区提供了消息冗余，如果有一个 broker 失效，其他 broker 可以接管领导权；同时，相关的消费者和生产者都要重新连接到新的首领。
+broker 是 kafka **集群 cluster** 的组成部分，每个集群都有一个 broker 充当集群控制器，负责管理工作，包括将 partition 分配给 broker，以及监控其他 broker。在集群中，一个 partition 从属于一个 broker。一个 partition 可能被分配给多个 broker，这个时候会发生**分区复制 replication**，这种复制机制为分区提供了消息冗余，如果有一个 broker 失效，其他 broker 可以接管领导权；同时，相关的消费者和生产者都要重新连接到新的首领。
 
 ![replica](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/message-proxy/replica.png)
 
@@ -100,7 +98,7 @@ Kafka 使用 Zookeeper 来维护集群成员的信息，每个 broker 都有一�
 
 紧接着，这条记录被添加到一个 batch 里，这个 batch 里的所有消息会被发送到相同的 topic 和 partition 上。生产者会使用一个独立的线程把整个 batch 发送到对应的 broker 上。
 
-Kafka 服务器在收到这个 batch 后会返回一个响应。如果消息成功写入Kafka，就返回一个 RecordMetaData 对象，它包含了消息发送到的 topic 和 partition，以及记录在分区里的 offset。如果写入失败，则会返回一个错误。生产者在收到错误之后会尝试重新发送消息，几次之后如果仍然失败，就返回错误信息。
+Kafka 服务器在收到这个 batch 后会返回一个响应。如果消息成功写入Kafka，就返回一个 `RecordMetaData` 对象，它包含了消息发送到的 topic 和 partition，以及记录在分区里的 offset。如果写入失败，则会返回一个错误。生产者在收到错误之后会尝试重新发送消息，几次之后如果仍然失败，就返回错误信息。
 
 
 
@@ -146,10 +144,6 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 以 `StringSerializer` 为例，它实现了 `Serializer` 接口，其中的 `serialize` 函数用来实现对数据的序列化：
 
 ```java
-/**
- *  String encoding defaults to UTF8 and can be customized by setting the property key.serializer.encoding,
- *  value.serializer.encoding or serializer.encoding. The first two take precedence over the last.
- */
 public class StringSerializer implements Serializer<String> {
     private String encoding = StandardCharsets.UTF_8.name();
 
@@ -179,7 +173,7 @@ public class StringSerializer implements Serializer<String> {
 
 ### 2.2 分区器
 
-生产者 `KafkaProducer` 发送消息前，会调用 `partition` 接口来获取接收消息的分区，如果在 `record` 中指定了 partition，那么会直接使用这个 partition，否则会调用分区器 `partitioner` 的 `partition` 接口来获取。
+生产者 `KafkaProducer` 发送消息前，会调用 `partition` 接口来选择接收消息的 partition，如果在 `record` 中指定了 partition，那么会直接使用这个 partition，否则会调用分区器 `partitioner` 的 `partition` 接口来获取。
 
 ```java
 public class KafkaProducer<K, V> implements Producer<K, V> {
@@ -252,7 +246,6 @@ public class DefaultPartitioner implements Partitioner {
         if (keyBytes == null) {
             return stickyPartitionCache.partition(topic, cluster);
         }
-        // hash the keyBytes to choose a partition
         return Utils.toPositive(Utils.murmur2(keyBytes)) % numPartitions;
     }
 }
@@ -311,7 +304,7 @@ public class StickyPartitionCache {
 
 `StickyPartitionCache` 类会维护一个从 topic 到 partition 的缓存，其本质也是轮询。
 
-在老版本的分区方式中，同一个 topic 中没有指定 partition 和 key 的消息会被轮询到不同的 partition 中，这样不同的 partition 中就会产生很多的 batch，从而导致更多的网络请求。而 StickyPartitionCache 保证了这样的消息可以被投递到同一个 partition 中，构成同一个 batch 发送给 Kafka 服务器，从而提高 Kafka 的吞吐量。
+在老版本的分区方式中，同一个 topic 中没有指定 partition 和 key 的消息会被轮询到不同的 partition 中，这样不同的 partition 中就会产生很多的 batch，从而导致更多的网络请求。而 `StickyPartitionCache` 保证了这样的消息可以被投递到同一个 partition 中，构成同一个 batch 发送给 Kafka 服务器，从而提高 Kafka 的吞吐量。
 
 ## 3 消费者
 
@@ -600,7 +593,7 @@ public class RoundRobinAssignor extends AbstractPartitionAssignor {
 
 以上两种方式都对所有的 partition 进行了全量重新分配。
 
-#### StickyAss的ignor
+#### StickyAssignor
 
 StickyAssignor 策略的目的有两个：
 
@@ -832,44 +825,55 @@ broker 上有一个SocketServer 组件，类似于 Reactor 模式中的 Dispatch
 
 Kafka 的基本存储单元是 partition，partition 无法在多个 broker 间再进行细分，也无法在同一个 broker 的多个磁盘上再进行细分。因此，partition 的大小受到单个挂载点可用空间的限制（一个挂载点由单个磁盘或多个磁盘组成，如果配置了JBOD 属于单个磁盘，RAID 属于多个磁盘）。在配置 Kafka 的时候，我们可以指定用于存储 partition 的目录。
 
+#### 文件管理
+
+我们可以单独为每一个 topic 配置数据保留规则，规定数据被删除之前可以保留多长时间，或者清理数据之前可以保留的数据量大小。
+
+因为在一个大文件里查找和删除消息是很耗时的，因此我们把 partition 分成若干个**片段 segment**。默认情况下，每个 segment 包含 1GB 或一周的数据（以较小的为准）。当 broker 往 partition 写入数据时，如果当前 segment 达到上限，则关闭当前文件并打开一个新文件进行写入，当前正在写入数据的 segment 叫作**活跃片段 active segment**，active segment 永远不会被删除。
+
+segment 由**索引文件 index file** 和**数据文件 data file** 组成，两个文件一一对应，成对出现，后缀分别为 .index 和 .log；其命名规则为：partition 中全局的第一个 segment 从 0 开始，后续每个 segment 为上一个 segment 最后一条消息的 offset 值：
+
+```shell
+$ ll
+0000000000000000000.index
+0000000000000000000.log
+0000000000000368769.ndex
+0000000000000368769.log
+0000000000000737337.index
+0000000000000737337.log
+0000000000001105814.index
+0000000000001105814.log
+```
+
+broker 会为每个 segment 维护一个文件句柄，即使 segment 是不活跃的。
+
+因为 segment 中保存的数据格式与生产者发送过来，以及发送给消费者的数据格式都是一致的，因此可以使用**零拷贝 zero copy** 技术来将数据拷贝到**页缓存 page cache** 中，同时避免对生产者已经压缩过的消息进行解压和压缩。同时，接收数据时并不需要等待数据被写入磁盘，而是只要确认数据被写入到页缓存即可，随后操作系统会根据 LRU 算法定期将页缓存上的脏数据写到物理磁盘上，这里的定期时间间隔是由提交时间来确定的，默认是 5 秒。
+
+#### 文件压缩
+
+日志压缩是Kafka 的一个高级特性，因为有了这个特性，Kafka 可以用来长时间地保存数据。
+
+除了 key, value, offset 之外，消息里还包含了消息大小、校验和、消息格式版本号、压缩算法和时间戳等信息。时间戳可以是生产者发送消息的时间，也可以是消息到达broker 的时间（可配置），如果生产者发送的是压缩过的消息，那么同一个 batch 的消息会被压缩在一起，被当作**包装消息 Wrapper message**；此后，broker 再把这个消息组发送给消费者。
+
+![file-format](https://raw.githubusercontent.com/ZintrulCre/warehouse/master/resources/message-proxy/file-format.png)
+
+Kafka 将消息构造为递归的模式，外层是一个包装消息，其值又是一个消息集合，称为**内层消息 Inner message**，外层消息可能有多条，每条外层消息的值都包装了多条内层消息，在外层指定一个压缩方法，再对内层消息使用这种压缩方法进行解压缩即可。
 
 
 
+## 引用
 
+[Mirror of Apache Kafka - GitHub](https://github.com/apache/kafka)
 
+[Apache Kafka Documentation](https://kafka.apache.org/documentation/)
 
+[Kafka 权威指南](https://book.douban.com/subject/27665114/)
 
+[深入理解 Kafka](https://book.douban.com/subject/30437872/)
 
+[Apache Kafka实战](https://book.douban.com/subject/30221096/)
 
-
-
-
-
-
-
-
-日志压缩是Kafka 的一个高级特性，因为有了这
-个特性，Kafka 可以用来长时间地保存数据。
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+[Kafka 分区机制产生的消息推送和消费逻辑 ](https://www.cnblogs.com/rickiyang/p/14591131.html)
 
 
 
