@@ -42,6 +42,6 @@
 
 ## One more thing
 
-Mac Mini M1 在休眠后，因为路由器网关，整个 Wi-Fi 都会瘫痪，所以要勾选 System Preference -> Energy Saver 里的 Prevent your Mac from automatically sleeping when the display is off。
+Mac Mini M1 作为路由器网关在休眠后，整个 Wi-Fi 都会瘫痪，所以要勾选 System Preference -> Energy Saver 里的 Prevent your Mac from automatically sleeping when the display is off。
 
 ![Energy Saver](https://raw.githubusercontent.com/ZintrulCre/warehouse/main/resources/proxy/Energy-Saver.png)
