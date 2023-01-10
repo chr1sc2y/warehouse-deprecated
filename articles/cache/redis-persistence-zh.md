@@ -67,7 +67,11 @@ AOF (Append Only File) 通过写日志的方式，在 Redis 每次写操作完�
 
 #### AOF重写会阻塞吗？
 
-AOF 的重写过程是由后台进程 bgrewriteaof 来完成的。主线程fork出后台的bgrewriteaof子进程，fork会把主线程的内存拷贝一份给bgrewriteaof子进程，这里面就包含了数据库的最新数据。然后，bgrewriteaof子进程就可以在不影响主线程的情况下，逐一把拷贝的数据写成操作，记入重写日志。所以aof在重写时，在fork进程时是会阻塞住主线程的。
+AOF 的重写过程是由后台进程 bgrewriteaof 来完成的。主线程 fork 出后台的 bgrewriteaof 子进程，fork 操作会把主线程的内存拷贝一份给 bgrewriteaof 子进程，这里面就包含了数据库的最新数据。然后，bgrewriteaof 子进程逐一把拷贝的数据写成操作，并记入重写日志，因此在重写过程中，只有当 fork 操作发生时会阻塞主线程。
+
+#### 重写在何时发生？
+
+我们可以从配置里控制重写的发生，有两个配置项：auto-aof-rewrite-min-size 控制重写时文件的最小 size，默认为 64MB；auto-aof-rewrite-percentage 代表此次重写文件和上次重写文件的大小差值，再除以上一次重写后aof文件大小。也就是当前aof文件比上一次重写后aof文件的增量大小，和上一次重写后aof文件大小的比值。
 
 
 ### 优缺点
