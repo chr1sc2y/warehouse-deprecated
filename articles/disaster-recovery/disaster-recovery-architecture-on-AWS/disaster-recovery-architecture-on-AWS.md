@@ -15,7 +15,7 @@ There are two key objectives:
 ![dr-objectives](./dr-objectives.png)
 
 
-We can observe from the figure above that the lower RTO and RPO are, the less recovery time and less loss of data could be. But in the meanwhile, lower RTO and RPO also take more resources, e.g, redundancy, money and operational complexity. Therefore we need to decide on the appropriate RTO and RPO values that suites the best for our services.
+We can observe from the figure above that the lower RTO and RPO are, the less recovery time and less loss of data could be. But in the meanwhile, lower RTO and RPO also take more resources, e.g, redundancy, money, and operational complexity. Therefore we need to decide on the appropriate RTO and RPO values that suites the best for our services.
 
 ## DR strategies
 
@@ -35,7 +35,7 @@ From the figure below, we can see how active/passive DR strategy works.
 
 ![active-passsive](./active-passsive.png)
 
-All traffic goes to a single AWS region called **Active Region**. If a disaster event occurs and the Active Region goes down, then the region where standby servers are located becomes the **Recovery Region**. All traffices will be switched to be routed to Recovery Region, and the workload can now operate from Recovery Region. This process is called **failover**.
+All traffic goes to a single AWS region called **Active Region**. If a disaster event occurs and the Active Region goes down, then the region where standby servers are located becomes the **Recovery Region**. All traffic will be switched to be routed to Recovery Region, and the workload can now operate from Recovery Region. This process is called **failover**.
 
 The 3 types of active-passive strategies are distinguished by **how tight the RTO/RPO objectives should be**, but for any type, the infrastructure should be fully or partially deployed in the Recovery Region before failover.
 
@@ -49,32 +49,32 @@ From the figure below, we can see how active/active DR strategy works.
 
 ### Strategies
 
-#### Backup & restore
+#### Backup & Restore
 
-Backup and restore strategy is a suitable approach for mitigating against **data loss/corruption**. This approach confronts a regional disaster event by replicating/mirroring data to other AWS Regions periodically, e.g. each 1 hour. For utilizing the data backup, the data layer and the application layer in the service architecture should be **seperated**.
+Backup and Restore strategy is a suitable approach for mitigating against **data loss/corruption**. This approach confronts a regional disaster event by replicating/mirroring data to other AWS Regions periodically, e.g. each 1 hour. For utilizing the data backup, the data layer and the application layer in the service architecture should be **separated**.
 
 ![backup-and-restore](./backup-and-restore.jpg)
 
-This strategy lowers cost and is relativly easy to implemente, and these features make it a good choice for many AWS workloads.
+This strategy lowers cost and is relatively easy to implement, and these features make it a good choice for many AWS workloads.
 
 #### Pilot Light and Warm Standby
 
-Pilot Light and Warm Standby strategies both offer a good balance of benefits and cost. The traffic is routed to Active Region originally, and fallback turns the traffic to Recovery Region when disaster event occurs.
+Pilot Light and Warm Standby strategies both offer a good balance of benefits and costs. The traffic is routed to Active Region originally, and fallback turns the traffic to Recovery Region when disaster event occurs.
 
 ![pilot-light-and-warm-standby](./pilot-light-and-warm-standby.jpg)
 
-The similarity between these two strategies is that both include an environment in the Recovery Region with copies of Active Region assets. The distinctions are that pilot light cannot process requests without **additional action taken first**, whereas warm standby can **handle traffic immediately**. The pilot light approach requires **manual opeartions** to turn on servers, possibly deploy additional infrastructure, whereas for warm standby **everything is already deployed and running**, and what we need to consider is whether we should scale up or not. Use RTO and RPO objectives to help choose between these approaches.
+The similarity between these two strategies is that both include an environment in the Recovery Region with copies of Active Region assets. The distinctions are that pilot light cannot process requests without **additional action taken first**, whereas warm standby can **handle traffic immediately**. The pilot light approach requires **manual operations** to turn on servers, and possibly deploy additional infrastructure, whereas for warm standby **everything is already deployed and running**, and what we need to consider is whether we should scale up or not. Use RTO and RPO objectives to help choose between these approaches.
 
 #### Multi-Site Active/Active
 
-With Multi-Site Active/Active strategy, each Region hosts a **highly available workload stack**, and each stack **serves production traffic** from where it is deployed. With a multi-site active/active approach, users are able to access workload in any of the Regions in which it is deployed. This approach is the most complex and costly one, but it can reduce recovery time to a extremely low level.
+With Multi-Site Active/Active strategy, each Region hosts a **highly available workload stack**, and each stack **serves production traffic** from where it is deployed. With a multi-site active/active approach, users are able to access the workload in any of the Regions in which it is deployed. This approach is the most complex and costly one, but it can reduce recovery time to an extremely low level.
 
 ![multi-site active/active.jpg](./multi-site-active-active.jpg)
 
-If the workload cannot operate in a region, failover will route traffic away from the impacted Region to healthy Regions. We can use Route 53 or Global Accelerator for routing and failover. Consider the multi-site active/active strategy for our workload if we require lowest RTO lowest RPO objectives.
+If the workload cannot operate in a region, failover will route traffic away from the impacted Region to healthy Regions. We can use Route 53 or Global Accelerator for routing and failover. Consider the multi-site active/active strategy for our workload if we require the lowest RTO lowest the RPO objectives.
 
 ## Conclusion
 
-There is no absolute best strategy to handle disaster events for any circumstance, we may need to analyze the business needs, the expenditure, the benefits and the risks of applying each strategy to our business.
+There is no absolute best strategy to handle disaster events for any circumstance, we may need to analyze the business needs, the expenditure, the benefits, and the risks of applying each strategy to our business.
 
 For more about DR, refer to [Disaster recovery options in the cloud](https://docs.aws.amazon.com/whitepapers/latest/disaster-recovery-workloads-on-aws/disaster-recovery-options-in-the-cloud.html#multi-site-activeactive)
